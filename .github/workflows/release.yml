@@ -60,7 +60,8 @@ jobs:
             -scheme ProcessScope \
             -configuration Release \
             -derivedDataPath build \
-            build | xcpretty
+            CODE_SIGN_IDENTITY="${{ secrets.CODESIGN_IDENTITY }}" \
+            build
 
       - name: Create DMG
         env:
