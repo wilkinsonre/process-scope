@@ -31,5 +31,9 @@
         <key>com.processscope.helper</key>
         <string>identifier "com.processscope.helper" and anchor apple generic</string>
     </dict>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>ProcessScope monitors Bluetooth device battery levels and connection status.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>ProcessScope discovers local network services and monitors network connections.</string>
 </dict>
 </plist>

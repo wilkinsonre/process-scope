@@ -10,15 +10,20 @@ struct OverviewPanel: View {
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                CPUOverviewCard()
-                MemoryOverviewCard()
-                GPUOverviewCard()
-                NetworkOverviewCard()
-                DiskOverviewCard()
-                ThermalOverviewCard()
+            VStack(spacing: 0) {
+                // Privacy indicators — only shown when mic or camera is active
+                PrivacyIndicatorRow()
+
+                LazyVGrid(columns: columns, spacing: 16) {
+                    CPUOverviewCard()
+                    MemoryOverviewCard()
+                    GPUOverviewCard()
+                    NetworkOverviewCard()
+                    DiskOverviewCard()
+                    ThermalOverviewCard()
+                }
+                .padding()
             }
-            .padding()
         }
         .navigationTitle("Overview")
     }
@@ -275,6 +280,68 @@ struct ThermalOverviewCard: View {
         case 2: "System may throttle performance"
         case 3: "Critical — performance significantly reduced"
         default: "Unknown"
+        }
+    }
+}
+
+// MARK: - Privacy Indicator Row
+
+/// Shows microphone and camera privacy indicators when active.
+/// Correlates with macOS orange (mic) and green (camera) menu bar dots.
+struct PrivacyIndicatorRow: View {
+    @EnvironmentObject var metrics: MetricsViewModel
+
+    private var isVisible: Bool {
+        metrics.audioSnapshot.micInUse || metrics.audioSnapshot.cameraInUse
+    }
+
+    var body: some View {
+        if isVisible {
+            HStack(spacing: 16) {
+                if metrics.audioSnapshot.micInUse {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(.orange)
+                            .frame(width: 8, height: 8)
+                        Image(systemName: "mic.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        if let firstProcess = metrics.audioSnapshot.micInUseBy.first {
+                            Text("Mic: \(firstProcess)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Mic active")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Microphone in use by \(metrics.audioSnapshot.micInUseBy.first ?? "unknown")")
+                }
+
+                if metrics.audioSnapshot.cameraInUse {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                        Image(systemName: "camera.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                        Text("Camera")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Camera in use")
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(.orange.opacity(0.05))
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 }

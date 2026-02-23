@@ -30,14 +30,30 @@ public final class MetricsViewModel: ObservableObject {
     @Published public var gpuUtilization: Double?
     @Published public var gpuHistory: [Double] = []
 
-    // MARK: - Disk
+    // MARK: - Disk (legacy)
 
     @Published public var diskUsage: Double = 0
     @Published public var diskTotal: UInt64 = 0
 
-    // MARK: - Thermal
+    // MARK: - Storage (expanded)
+
+    @Published public var storageVolumes: [VolumeSnapshot] = []
+    @Published public var networkVolumes: [NetworkVolumeSnapshot] = []
+    @Published public var timeMachineState: TimeMachineState = .unavailable
+
+    // MARK: - Power & Thermal
 
     @Published public var thermalState: Int = 0
+    @Published public var powerSnapshot: PowerSnapshot?
+    @Published public var powerHistory: [Double] = []
+    @Published public var componentPower: IOKitWrapper.ComponentPower?
+    @Published public var cpuFrequency: IOKitWrapper.CPUFrequency?
+    @Published public var batteryInfo: IOKitWrapper.BatteryInfo?
+    @Published public var cpuTemp: Double?
+    @Published public var gpuTemp: Double?
+    @Published public var isThrottled: Bool = false
+
+    private let powerCollector = PowerCollector()
 
     // MARK: - Processes
 
@@ -49,11 +65,42 @@ public final class MetricsViewModel: ObservableObject {
 
     @Published public var networkConnections: [NetworkConnectionRecord] = []
 
+    // MARK: - Bluetooth
+
+    @Published public var bluetoothSnapshot: BluetoothSnapshot = BluetoothSnapshot()
+
+    // MARK: - Audio
+
+    @Published public var audioSnapshot: AudioSnapshot = AudioSnapshot()
+
+    // MARK: - Network Intelligence
+
+    @Published public var sshSessions: [SSHSession] = []
+    @Published public var tailscaleStatus: TailscaleStatus?
+    @Published public var wifiSnapshot: WiFiSnapshot?
+    @Published public var listeningPorts: [ListeningPort] = []
+    @Published public var speedTestResult: SpeedTestResult?
+    @Published public var speedTestState: SpeedTestState = .idle
+    @Published public var isRunningSpeedTest: Bool = false
+
+    private let sshCollector = SSHSessionCollector()
+    private let tailscaleCollector = TailscaleCollector()
+    private let wifiCollector = WiFiCollector()
+    private let speedTestRunnerInstance = SpeedTestRunner()
+    private let listeningPortsCollector = ListeningPortsCollector()
+
+    // MARK: - Bluetooth & Audio Collectors
+
+    private let bluetoothCollector = BluetoothCollector()
+    private let audioCollector = AudioCollector()
+
     // MARK: - History limits
 
     private let maxHistoryPoints = 60
 
     private let processCollector = ProcessCollector()
+    private let storageCollector = StorageCollector()
+    private let networkVolumeCollector = NetworkVolumeCollector()
     private let enricher: ProcessEnricher
 
     public init() {
@@ -68,7 +115,18 @@ public final class MetricsViewModel: ObservableObject {
             diskUsage = total > 0 ? Double(total - free) / Double(total) : 0
         }
 
-        Task { await processCollector.activate() }
+        Task {
+            await processCollector.activate()
+            await powerCollector.activate()
+            await storageCollector.activate()
+            await networkVolumeCollector.activate()
+            await sshCollector.activate()
+            await tailscaleCollector.activate()
+            await wifiCollector.activate()
+            await listeningPortsCollector.activate()
+            await bluetoothCollector.activate()
+            await audioCollector.activate()
+        }
     }
 
     // MARK: - Update Methods
@@ -103,8 +161,22 @@ public final class MetricsViewModel: ObservableObject {
             appendHistory(&gpuHistory, value: gpu)
         }
 
-        // Thermal
-        thermalState = IOKitWrapper.shared.thermalState()
+        // Power & Thermal
+        if let snapshot = await powerCollector.collect() {
+            powerSnapshot = snapshot
+            thermalState = snapshot.thermalState
+            componentPower = snapshot.componentPower
+            cpuFrequency = snapshot.frequency
+            batteryInfo = snapshot.battery
+            cpuTemp = snapshot.cpuTemp
+            gpuTemp = snapshot.gpuTemp
+            isThrottled = snapshot.isThrottled
+            if let watts = snapshot.totalWatts {
+                appendHistory(&powerHistory, value: watts)
+            }
+        } else {
+            thermalState = IOKitWrapper.shared.thermalState()
+        }
     }
 
     public func updateStandardMetrics() async {
@@ -112,10 +184,23 @@ public final class MetricsViewModel: ObservableObject {
         processes = procs
         processCount = procs.count
         processTree = ProcessTreeBuilder.buildTree(from: procs)
+
+        // Bluetooth (Standard tier, 1s)
+        bluetoothSnapshot = await bluetoothCollector.collect()
+
+        // Audio (Standard tier, 1s)
+        audioSnapshot = await audioCollector.collect()
     }
 
     public func updateExtendedMetrics() async {
-        // Network connections will be populated when network collector is wired
+        // SSH sessions (Extended tier, 3s)
+        sshSessions = await sshCollector.collectSessions()
+
+        // Tailscale status (Extended tier, 3s)
+        tailscaleStatus = await tailscaleCollector.collectStatus()
+
+        // Listening ports (Extended tier, 3s)
+        listeningPorts = await listeningPortsCollector.collectListeningPorts()
     }
 
     public func updateSlowMetrics() async {
@@ -135,6 +220,39 @@ public final class MetricsViewModel: ObservableObject {
             diskTotal = total
             diskUsage = total > 0 ? Double(total - free) / Double(total) : 0
         }
+
+        // Expanded storage collection
+        let storageSnapshot = await storageCollector.collect()
+        storageVolumes = storageSnapshot.volumes
+        timeMachineState = storageSnapshot.timeMachineState
+
+        let netVolSnapshot = await networkVolumeCollector.collect()
+        networkVolumes = netVolSnapshot.volumes
+
+        // WiFi snapshot (Slow tier, 10s)
+        wifiSnapshot = await wifiCollector.collectSnapshot()
+    }
+
+    // MARK: - Speed Test
+
+    /// Triggers an on-demand speed test
+    ///
+    /// Runs on a low-priority queue to avoid blocking the UI thread.
+    /// Updates `speedTestResult` and `speedTestState` on completion.
+    public func runSpeedTest() async {
+        guard !isRunningSpeedTest else { return }
+        isRunningSpeedTest = true
+        speedTestState = .running
+
+        do {
+            let result = try await speedTestRunnerInstance.run()
+            speedTestResult = result
+            speedTestState = .completed(result)
+        } catch {
+            speedTestState = .failed(error.localizedDescription)
+        }
+
+        isRunningSpeedTest = false
     }
 
     // MARK: - History

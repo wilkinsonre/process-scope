@@ -84,15 +84,44 @@ public final class NetworkModule: PSModule, @unchecked Sendable {
     public let symbolName = "network"
     public let category = ModuleCategory.network
     public nonisolated var isAvailable: Bool { true }
-    public var pollingSubscriptions: Set<PollingTier> { [.standard, .extended] }
+    public var pollingSubscriptions: Set<PollingTier> { [.standard, .extended, .slow, .infrequent] }
 
     public let networkCollector: NetworkCollector
-    public var collectors: [any SystemCollector] { [networkCollector] }
+    public let sshCollector: SSHSessionCollector
+    public let tailscaleCollector: TailscaleCollector
+    public let wifiCollector: WiFiCollector
+    public let speedTestRunner: SpeedTestRunner
+    public let listeningPortsCollector: ListeningPortsCollector
 
-    public init() { networkCollector = NetworkCollector() }
+    public var collectors: [any SystemCollector] {
+        [networkCollector, sshCollector, tailscaleCollector, wifiCollector, listeningPortsCollector]
+    }
 
-    public func activate() async { await networkCollector.activate() }
-    public func deactivate() async { await networkCollector.deactivate() }
+    public init() {
+        networkCollector = NetworkCollector()
+        sshCollector = SSHSessionCollector()
+        tailscaleCollector = TailscaleCollector()
+        wifiCollector = WiFiCollector()
+        speedTestRunner = SpeedTestRunner()
+        listeningPortsCollector = ListeningPortsCollector()
+    }
+
+    public func activate() async {
+        await networkCollector.activate()
+        await sshCollector.activate()
+        await tailscaleCollector.activate()
+        await wifiCollector.activate()
+        await listeningPortsCollector.activate()
+    }
+
+    public func deactivate() async {
+        await networkCollector.deactivate()
+        await sshCollector.deactivate()
+        await tailscaleCollector.deactivate()
+        await wifiCollector.deactivate()
+        await listeningPortsCollector.deactivate()
+        await speedTestRunner.cancel()
+    }
 }
 
 // MARK: - Storage Module
@@ -103,15 +132,26 @@ public final class StorageModule: PSModule, @unchecked Sendable {
     public let symbolName = "internaldrive"
     public let category = ModuleCategory.hardware
     public nonisolated var isAvailable: Bool { true }
-    public var pollingSubscriptions: Set<PollingTier> { [.extended, .slow] }
+    public var pollingSubscriptions: Set<PollingTier> { [.slow, .infrequent] }
 
-    public let diskCollector: DiskCollector
-    public var collectors: [any SystemCollector] { [diskCollector] }
+    public let storageCollector: StorageCollector
+    public let networkVolumeCollector: NetworkVolumeCollector
+    public var collectors: [any SystemCollector] { [storageCollector, networkVolumeCollector] }
 
-    public init() { diskCollector = DiskCollector() }
+    public init() {
+        storageCollector = StorageCollector()
+        networkVolumeCollector = NetworkVolumeCollector()
+    }
 
-    public func activate() async { await diskCollector.activate() }
-    public func deactivate() async { await diskCollector.deactivate() }
+    public func activate() async {
+        await storageCollector.activate()
+        await networkVolumeCollector.activate()
+    }
+
+    public func deactivate() async {
+        await storageCollector.deactivate()
+        await networkVolumeCollector.deactivate()
+    }
 }
 
 // MARK: - Power & Thermal Module
@@ -125,12 +165,23 @@ public final class PowerThermalModule: PSModule, @unchecked Sendable {
     public var pollingSubscriptions: Set<PollingTier> { [.critical, .infrequent] }
 
     public let thermalCollector: ThermalCollector
-    public var collectors: [any SystemCollector] { [thermalCollector] }
+    public let powerCollector: PowerCollector
+    public var collectors: [any SystemCollector] { [thermalCollector, powerCollector] }
 
-    public init() { thermalCollector = ThermalCollector() }
+    public init() {
+        thermalCollector = ThermalCollector()
+        powerCollector = PowerCollector()
+    }
 
-    public func activate() async { await thermalCollector.activate() }
-    public func deactivate() async { await thermalCollector.deactivate() }
+    public func activate() async {
+        await thermalCollector.activate()
+        await powerCollector.activate()
+    }
+
+    public func deactivate() async {
+        await thermalCollector.deactivate()
+        await powerCollector.deactivate()
+    }
 }
 
 // MARK: - Bluetooth Module
@@ -143,12 +194,13 @@ public final class BluetoothModule: PSModule, @unchecked Sendable {
     public nonisolated var isAvailable: Bool { true }
     public var pollingSubscriptions: Set<PollingTier> { [.standard] }
 
-    public var collectors: [any SystemCollector] { [] }
+    public let bluetoothCollector: BluetoothCollector
+    public var collectors: [any SystemCollector] { [bluetoothCollector] }
 
-    public init() {}
+    public init() { bluetoothCollector = BluetoothCollector() }
 
-    public func activate() async {}
-    public func deactivate() async {}
+    public func activate() async { await bluetoothCollector.activate() }
+    public func deactivate() async { await bluetoothCollector.deactivate() }
 }
 
 // MARK: - Audio Module
@@ -161,12 +213,13 @@ public final class AudioModule: PSModule, @unchecked Sendable {
     public nonisolated var isAvailable: Bool { true }
     public var pollingSubscriptions: Set<PollingTier> { [.standard] }
 
-    public var collectors: [any SystemCollector] { [] }
+    public let audioCollector: AudioCollector
+    public var collectors: [any SystemCollector] { [audioCollector] }
 
-    public init() {}
+    public init() { audioCollector = AudioCollector() }
 
-    public func activate() async {}
-    public func deactivate() async {}
+    public func activate() async { await audioCollector.activate() }
+    public func deactivate() async { await audioCollector.deactivate() }
 }
 
 // MARK: - Display Module

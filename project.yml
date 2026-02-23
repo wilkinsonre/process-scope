@@ -68,6 +68,8 @@ targets:
       - path: Sources/Core/Collectors/MemoryCollector.swift
       - path: Sources/Core/Collectors/GPUCollector.swift
       - path: Sources/Core/Collectors/ThermalCollector.swift
+      - path: Sources/Core/Collectors/PowerCollector.swift
+      - path: Sources/Core/Collectors/StorageCollector.swift
       - path: Sources/Core/Models/ProcessTreeBuilder.swift
       - path: Sources/Utilities/CInterop
       - path: Sources/Utilities/Logging

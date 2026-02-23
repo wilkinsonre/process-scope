@@ -34,13 +34,13 @@ struct DashboardView: View {
         case "network":
             NetworkDetailView()
         case "storage":
-            DiskDetailView()
+            StorageDetailView()
         case "power":
             PowerDetailView()
         case "bluetooth":
-            PlaceholderDetailView(title: "Bluetooth", symbol: "bluetooth")
+            BluetoothDetailView()
         case "audio":
-            PlaceholderDetailView(title: "Audio", symbol: "speaker.wave.2")
+            AudioDetailView()
         case "display":
             PlaceholderDetailView(title: "Display", symbol: "display")
         case "security":
