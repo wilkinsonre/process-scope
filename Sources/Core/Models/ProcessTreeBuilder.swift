@@ -40,9 +40,9 @@ public enum ProcessTreeBuilder {
             childrenMap[process.ppid, default: []].append(process)
         }
 
-        // Find root processes (ppid=0 or ppid=1, or parent not in list)
+        // Find root processes (ppid=0 or parent not in list)
         let rootProcesses = processes.filter { proc in
-            proc.ppid == 0 || proc.ppid == 1 || processMap[proc.ppid] == nil
+            proc.ppid == 0 || processMap[proc.ppid] == nil
         }
 
         func buildNode(for process: ProcessRecord) -> ProcessTreeNode {

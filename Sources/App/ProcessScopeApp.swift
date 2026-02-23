@@ -12,6 +12,22 @@ struct ProcessScopeApp: App {
                 .environmentObject(appState.moduleRegistry)
                 .environmentObject(appState.metricsViewModel)
                 .frame(minWidth: 900, minHeight: 600)
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)) { _ in
+                    appState.setWindowVisible(true)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignMainNotification)) { _ in
+                    // Only mark hidden if no other app windows are visible
+                    let hasVisibleWindow = NSApp.windows.contains { $0.isVisible && !$0.title.isEmpty }
+                    if !hasVisibleWindow {
+                        appState.setWindowVisible(false)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
+                    let otherWindows = NSApp.windows.filter { $0.isVisible && !$0.title.isEmpty }
+                    if otherWindows.count <= 1 {
+                        appState.setWindowVisible(false)
+                    }
+                }
         }
         .defaultSize(width: 1100, height: 750)
         .commands {

@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import IOKit.ps
 import os
 
 /// Central application state coordinating modules, polling, and data flow
@@ -11,7 +12,9 @@ public final class AppState: ObservableObject {
 
     @Published public var selectedModuleID: String? = "cpu"
     @Published public var isHelperInstalled = false
-    @Published public var windowVisible = true
+    @Published public var windowVisible = true {
+        didSet { pollingCoordinator.setWindowVisible(windowVisible) }
+    }
 
     // MARK: - Subsystems
 
@@ -21,6 +24,7 @@ public final class AppState: ObservableObject {
     public let helperConnection = HelperConnection()
 
     private var cancellables = Set<AnyCancellable>()
+    private var batteryObserver: Any?
 
     public init() {
         let polling = PollingCoordinator(registry: moduleRegistry)
@@ -29,6 +33,7 @@ public final class AppState: ObservableObject {
 
         registerDefaultModules()
         setupPollingSubscriptions()
+        setupBatteryMonitoring()
 
         Task {
             await moduleRegistry.activateEnabledModules()
@@ -51,6 +56,46 @@ public final class AppState: ObservableObject {
         moduleRegistry.register(DisplayModule())
         moduleRegistry.register(SecurityModule())
         moduleRegistry.register(DeveloperModule())
+    }
+
+    // MARK: - Adaptive Polling Hooks
+
+    private func setupBatteryMonitoring() {
+        // Check initial battery state
+        updateBatteryState()
+
+        // Monitor power source changes via IOKit
+        let loop = IOPSNotificationCreateRunLoopSource({ context in
+            guard let context else { return }
+            let appState = Unmanaged<AppState>.fromOpaque(context).takeUnretainedValue()
+            Task { @MainActor in
+                appState.updateBatteryState()
+            }
+        }, Unmanaged.passUnretained(self).toOpaque())
+
+        if let loop = loop?.takeRetainedValue() {
+            CFRunLoopAddSource(CFRunLoopGetMain(), loop, .defaultMode)
+        }
+    }
+
+    private func updateBatteryState() {
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [Any],
+              !sources.isEmpty else {
+            // No battery (desktop Mac) — never in battery mode
+            pollingCoordinator.setBatteryMode(false)
+            return
+        }
+
+        let info = IOPSGetProvidingPowerSourceType(snapshot)?.takeRetainedValue() as String?
+        let onBattery = info == kIOPSBatteryPowerValue as String
+        pollingCoordinator.setBatteryMode(onBattery)
+        Self.logger.debug("Battery mode: \(onBattery)")
+    }
+
+    /// Call from window delegate to track visibility
+    public func setWindowVisible(_ visible: Bool) {
+        windowVisible = visible
     }
 
     // MARK: - Polling Subscriptions
