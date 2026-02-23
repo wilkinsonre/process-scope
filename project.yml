@@ -27,8 +27,12 @@ targets:
       - path: Sources
         excludes:
           - "**/Tests/**"
-    resources:
-      - path: Resources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
+      - path: Resources/DefaultAlertRules.yaml
+        buildPhase: resources
+      - path: Resources/DefaultEnrichmentRules.yaml
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.processscope.app
