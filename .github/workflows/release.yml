@@ -69,6 +69,7 @@ jobs:
             -scheme ProcessScope \
             -configuration Release \
             -derivedDataPath build \
+            -arch arm64 \
             CODE_SIGN_IDENTITY="${{ secrets.CODESIGN_IDENTITY }}" \
             build
 
