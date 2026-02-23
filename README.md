@@ -1,125 +1,165 @@
-# ProcessScope — Claude Code Scaffold (Full Scope)
+<p align="center">
+  <img src="Resources/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="128" alt="ProcessScope icon">
+</p>
 
-> Companion documentation package for building ProcessScope with Claude Code.
-> Covers PRD v1.0 + Amendment A — 100% feature coverage across 13 milestones.
+<h1 align="center">ProcessScope</h1>
 
-## What's Included
+<p align="center">
+  <strong>See what your processes are actually doing</strong><br>
+  A native macOS system monitor built for depth, not just dashboards.
+</p>
 
-```
-processscope-scaffold/
-├── CLAUDE.md                          # Always-on project context (~100 lines)
-├── ONESHOT_PROMPT.md                  # Master build prompt (M1–M13, 5 phases)
-├── README.md                          # This file
-└── .claude/
-    ├── post-compact-context.md        # Re-injected after /compact via hook
-    ├── settings.json                  # Permissions, hooks, notifications
-    ├── agents/
-    │   ├── core-systems.md            # M1–M3: XPC, collectors, enrichment
-    │   ├── ui-builder.md              # All milestones: SwiftUI views, 12 modules
-    │   ├── expanded-collectors.md     # M7–M10: storage, network, BT, audio, power
-    │   ├── action-builder.md          # M5, M11, M12: action layer, Docker, network
-    │   ├── alert-builder.md           # M13: threshold engine, notifications
-    │   └── tester.md                  # All milestones: tests, verification
-    ├── rules/
-    │   ├── swift-style.md             # Path-scoped: Sources/**/*.swift
-    │   ├── c-interop.md               # Path-scoped: CInterop/**/*.swift
-    │   └── action-safety.md           # Path-scoped: Sources/Actions/**/*.swift
-    └── skills/
-        ├── iokit-interop/SKILL.md     # C interop: libproc, sysctl, IOKit, IOReport
-        ├── xpc-helper/SKILL.md        # XPC protocol, SMAppService, helper daemon
-        ├── process-enrichment/SKILL.md # Enrichment engine, rules, tree building
-        ├── swift-macos/SKILL.md       # Swift 6 concurrency, Xcode targets, Charts
-        ├── swiftui-dashboard/SKILL.md # All 12 modules, action UI, settings tabs
-        ├── storage-network/SKILL.md   # DiskArbitration, SSH, Tailscale, WiFi, speed
-        ├── peripheral-systems/SKILL.md # Bluetooth, Audio, Display, Security, DevMetrics
-        ├── action-layer/SKILL.md      # Signals, Docker API, eject, audit trail
-        └── modular-settings/SKILL.md  # ModuleRegistry, alert engine, notifications
-```
+<p align="center">
+  <a href="https://github.com/wilkinsonre/process-scope/releases/latest"><img src="https://img.shields.io/github/v/release/wilkinsonre/process-scope?style=flat-square&label=latest" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-15.0%2B-blue?style=flat-square" alt="macOS 15.0+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-required-blue?style=flat-square" alt="Apple Silicon">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/wilkinsonre/process-scope?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/wilkinsonre/process-scope/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wilkinsonre/process-scope/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+</p>
 
-## File Counts
+<br>
 
-| Category | Files | Purpose |
-|----------|-------|---------|
-| CLAUDE.md | 1 | Always-on context (~102 lines, ~1,500 tokens) |
-| Skills | 9 | On-demand domain knowledge |
-| Subagents | 6 | Isolated execution contexts |
-| Rules | 3 | Path-scoped code style enforcement |
-| Settings | 1 | Permissions + hooks |
-| Support | 3 | Post-compact context, README, oneshot prompt |
-| **Total** | **23** | |
+<p align="center">
+  <!-- screenshot: main-overview.png — full app window showing process list with introspection panel -->
+  <img src="" width="720" alt="ProcessScope overview">
+</p>
 
-## How to Use
+<p align="center">
+  <!-- screenshot: module-detail.png — expanded module view (e.g. GPU & Neural Engine) -->
+  <img src="" width="350" alt="Module detail view">
+  &nbsp;&nbsp;
+  <!-- screenshot: process-introspection.png — deep process introspection panel -->
+  <img src="" width="350" alt="Process introspection">
+</p>
 
-### 1. Place files in your project root
-```bash
-tar xzf processscope-scaffold.tar.gz -C /path/to/ProcessScope/
+<br>
+
+---
+
+## Install
+
+### Homebrew (recommended)
+
+```sh
+brew tap wilkinsonre/process-scope
+brew install --cask processcope
 ```
 
-### 2. Add PRD documents
-Place `PRD.md` (base PRD v1.0) and `PRD-AMENDMENT-A.md` in the project root.
+### Direct download
 
-### 3. Open Claude Code and paste the oneshot prompt
-```bash
-cd /path/to/ProcessScope
-claude
+Download the latest `.dmg` from [GitHub Releases](https://github.com/wilkinsonre/process-scope/releases).
+
+Mount the image, drag ProcessScope to Applications, and launch.
+
+---
+
+## Features
+
+ProcessScope provides twelve focused monitoring modules, each designed to surface actionable detail rather than summary metrics.
+
+| Module | What it shows |
+|---|---|
+| **CPU** | Per-core utilization, frequency scaling, process attribution per core |
+| **Memory** | Pressure state, per-process footprint breakdown, swap and compressed memory |
+| **GPU & Neural Engine** | Metal workload attribution, ANE task scheduling, thermal contribution |
+| **Processes** | Deep introspection — open files, network connections, dylibs, entitlements |
+| **Storage** | Volume health, per-process I/O rates, eject and mount controls |
+| **Network** | Per-process connection map, bandwidth attribution, DNS and route inspection |
+| **Bluetooth** | Connected device inventory, signal quality, battery levels |
+| **Power & Thermal** | SMC sensor readings, fan curves, per-process energy impact attribution |
+| **Audio** | Active audio streams, per-process routing, device configuration |
+| **Display** | Refresh rate, color profile, per-app GPU compositing cost |
+| **Security** | SIP status, entitlement audit, TCC permission inventory per process |
+| **Developer** | Docker container management, Xcode process grouping, daemon inspection |
+
+Every module is independently toggleable. Disabled modules have zero overhead — no polling, no history buffers, no XPC subscriptions.
+
+---
+
+## What makes it different
+
+Most system monitors show you **that** a process is consuming resources. ProcessScope shows you **what** it is doing and **why**.
+
+<table>
+<tr>
+<td width="50%">
+
+**Deep process introspection**
+
+Select any process to inspect its open file descriptors, active network connections, loaded dylibs, Mach ports, sandbox profile, and entitlements. No terminal required.
+
+</td>
+<td width="50%">
+
+**Action control surface**
+
+Kill or suspend processes, eject drives, manage Docker containers, and toggle launch daemons directly from the interface. Every action is confirmation-gated and audit-logged.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Attribution, not aggregation**
+
+Resource consumption is traced back to specific processes across every module. CPU, GPU, network, disk, and energy metrics all answer "who is responsible."
+
+</td>
+<td width="50%">
+
+**Native performance**
+
+Built in Swift with SwiftUI. No Electron, no web views. Uses kernel-level APIs and private framework introspection where available, falling back gracefully when permissions are restricted.
+
+</td>
+</tr>
+</table>
+
+---
+
+## Requirements
+
+| | Minimum |
+|---|---|
+| macOS | 15.0 (Sequoia) |
+| Architecture | Apple Silicon (M1 or later) |
+| Disk space | ~25 MB |
+
+Full Disk Access and Accessibility permissions are requested on first launch to enable deep introspection. The app functions with reduced capability if these are declined.
+
+---
+
+## Build from source
+
+Requires Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+
+```sh
+git clone https://github.com/wilkinsonre/process-scope.git
+cd process-scope
+brew install xcodegen
+
+xcodegen generate
+
+xcodebuild -project ProcessScope.xcodeproj \
+  -scheme ProcessScope \
+  -configuration Release \
+  -derivedDataPath build \
+  build
 ```
-Then paste the contents of `ONESHOT_PROMPT.md`.
 
-### 4. Context management during build
-The prompt is organized into 5 phases with `/compact` between each:
-- **Phase A** (M1–M3): Foundation + Core Intelligence
-- **Phase B** (M4–M5): Full Dashboard + Action Layer v1
-- **Phase C** (M6): Polish + Release Prep → **v0.1.0 tag**
-- **Phase D** (M7–M10): Expanded Observation Modules
-- **Phase E** (M11–M13): Control Actions + Alert Engine → **v0.3.0 tag**
+The resulting `.app` bundle will be in `build/Build/Products/Release/`.
 
-The `PostCompact` hook in settings.json automatically re-injects critical architecture context after each compaction.
+To run tests:
 
-## Architecture Overview
+```sh
+xcodebuild -project ProcessScope.xcodeproj \
+  -scheme ProcessScopeTests \
+  -configuration Debug \
+  test
+```
 
-### Token Budget
-| Component | Est. Tokens | Loaded |
-|-----------|-------------|--------|
-| CLAUDE.md | ~1,500 | Every session |
-| Post-compact context | ~600 | After compaction |
-| Each skill (avg) | ~2,000 | On demand |
-| Each subagent | ~500 | When delegated to |
-| Each rule | ~200 | When editing matching paths |
+---
 
-### Subagent Delegation Map
-| Subagent | Milestones | Domain |
-|----------|-----------|--------|
-| core-systems | M1, M2, M3 | XPC, collectors, CInterop, enrichment |
-| ui-builder | M1–M13 (UI parts) | SwiftUI, settings, action UI |
-| expanded-collectors | M7, M8, M9, M10 | New module collectors |
-| action-builder | M5, M11, M12 | Process/Docker/network/system actions |
-| alert-builder | M13 | Alert engine, notifications |
-| tester | M1–M13 (after each) | Tests, verification |
+## License
 
-### Skill Loading Map
-| Skill | Used By | Key Content |
-|-------|---------|-------------|
-| iokit-interop | core-systems, expanded-collectors | libproc, sysctl, IOKit code patterns |
-| xpc-helper | core-systems, action-builder | XPC protocol, SMAppService, helper |
-| process-enrichment | core-systems | Rule engine, templates, tree building |
-| swift-macos | ui-builder | Swift 6 patterns, Xcode targets |
-| swiftui-dashboard | ui-builder | 12 module views, settings, actions UI |
-| storage-network | expanded-collectors | DiskArbitration, SSH, Tailscale, WiFi |
-| peripheral-systems | expanded-collectors | Bluetooth, Audio, Display, Security |
-| action-layer | action-builder | Signals, Docker API, audit trail |
-| modular-settings | alert-builder | ModuleRegistry, alert engine, UNNotification |
-
-## Changes from v1 Scaffold
-
-| Aspect | v1 (Base PRD) | v2 (Full Scope) |
-|--------|---------------|-----------------|
-| Milestones | M1–M4 (M5–M6 deferred) | M1–M13 (100% coverage) |
-| Skills | 5 | 9 (+storage-network, peripheral-systems, action-layer, modular-settings) |
-| Subagents | 3 | 6 (+expanded-collectors, action-builder, alert-builder) |
-| Rules | 2 | 3 (+action-safety) |
-| CLAUDE.md | ~90 lines | ~102 lines (added module list, action rules, polling tier 5) |
-| Polling tiers | 4 | 5 (added Infrequent/60s) |
-| Performance budget | Single target | Dual target (default modules vs all modules) |
-| Phases | 1 phase | 5 phases with compaction strategy |
-| Settings | 4 tabs | 7 tabs (added Modules, Actions, Alerts) |
-| Sidebar | Hardcoded enum | Dynamic ModuleRegistry-driven |
+MIT — see [LICENSE](LICENSE) for details.
