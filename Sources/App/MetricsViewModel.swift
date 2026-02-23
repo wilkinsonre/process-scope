@@ -73,6 +73,18 @@ public final class MetricsViewModel: ObservableObject {
 
     @Published public var audioSnapshot: AudioSnapshot = AudioSnapshot()
 
+    // MARK: - Display
+
+    @Published public var displaySnapshot: DisplaySnapshot = DisplaySnapshot()
+
+    // MARK: - Security
+
+    @Published public var securitySnapshot: SecuritySnapshot = SecuritySnapshot()
+
+    // MARK: - Developer
+
+    @Published public var developerSnapshot: DeveloperSnapshot = DeveloperSnapshot()
+
     // MARK: - Network Intelligence
 
     @Published public var sshSessions: [SSHSession] = []
@@ -93,6 +105,12 @@ public final class MetricsViewModel: ObservableObject {
 
     private let bluetoothCollector = BluetoothCollector()
     private let audioCollector = AudioCollector()
+
+    // MARK: - Display, Security & Developer Collectors
+
+    private let displayCollector = DisplayCollector()
+    private let securityCollector = SecurityCollector()
+    private let developerCollector = DeveloperCollector()
 
     // MARK: - Alert Engine
 
@@ -131,6 +149,9 @@ public final class MetricsViewModel: ObservableObject {
             await listeningPortsCollector.activate()
             await bluetoothCollector.activate()
             await audioCollector.activate()
+            await displayCollector.activate()
+            await securityCollector.activate()
+            await developerCollector.activate()
         }
     }
 
@@ -233,6 +254,9 @@ public final class MetricsViewModel: ObservableObject {
 
         // Listening ports (Extended tier, 3s)
         listeningPorts = await listeningPortsCollector.collectListeningPorts()
+
+        // Developer environment (Extended tier, 3s)
+        developerSnapshot = await developerCollector.collect()
     }
 
     public func updateSlowMetrics() async {
@@ -263,6 +287,71 @@ public final class MetricsViewModel: ObservableObject {
 
         // WiFi snapshot (Slow tier, 10s)
         wifiSnapshot = await wifiCollector.collectSnapshot()
+
+        // Display snapshot (Slow tier, 10s)
+        displaySnapshot = await displayCollector.collect()
+
+        // Security posture (Slow tier, 10s)
+        securitySnapshot = await securityCollector.collect()
+    }
+
+    // MARK: - Infrequent Update (60s)
+
+    /// Auto speed test configuration: when true, a speed test runs automatically
+    /// on the infrequent polling tier (every 60s, subject to adaptive policy).
+    @Published public var autoSpeedTestEnabled: Bool = false
+
+    /// Minimum interval between automatic speed tests (in seconds).
+    /// Prevents back-to-back runs even if the polling tier fires more frequently
+    /// due to restarts or configuration changes.
+    private let autoSpeedTestMinInterval: TimeInterval = 300 // 5 minutes
+
+    /// Timestamp of the last completed automatic speed test
+    private var lastAutoSpeedTestTime: Date?
+
+    /// Updates metrics on the infrequent polling tier (60s)
+    ///
+    /// Handles data that changes very slowly:
+    /// - Battery health refresh (cycle count, design vs current capacity)
+    /// - Time Machine backup status
+    /// - Security posture (SIP, FileVault, Firewall, Gatekeeper)
+    /// - Automatic speed test (if enabled and cooldown has elapsed)
+    public func updateInfrequentMetrics() async {
+        // Battery health refresh — reads full BatteryInfo from IOKit
+        // Critical and slow tiers already update batteryInfo via PowerCollector,
+        // but this dedicated refresh ensures cycle count, capacity degradation,
+        // and temperature are up-to-date even when the power view is not visible.
+        batteryInfo = IOKitWrapper.shared.batteryInfo()
+
+        // Time Machine status refresh
+        let storageSnapshot = await storageCollector.collect()
+        timeMachineState = storageSnapshot.timeMachineState
+
+        // Security posture refresh (SIP, FileVault, Firewall, Gatekeeper)
+        securitySnapshot = await securityCollector.collect()
+
+        // Auto speed test (if enabled and cooldown has elapsed)
+        if autoSpeedTestEnabled && !isRunningSpeedTest {
+            let now = Date()
+            let shouldRun: Bool
+            if let lastRun = lastAutoSpeedTestTime {
+                shouldRun = now.timeIntervalSince(lastRun) >= autoSpeedTestMinInterval
+            } else {
+                shouldRun = true
+            }
+
+            if shouldRun {
+                do {
+                    let result = try await speedTestRunnerInstance.run()
+                    speedTestResult = result
+                    speedTestState = .completed(result)
+                    lastAutoSpeedTestTime = now
+                } catch {
+                    Self.logger.warning("Auto speed test failed: \(error.localizedDescription)")
+                    speedTestState = .failed(error.localizedDescription)
+                }
+            }
+        }
     }
 
     // MARK: - Speed Test

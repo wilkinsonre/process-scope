@@ -69,7 +69,12 @@ public struct AuditEntry: Codable, Sendable, Identifiable {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let ts = formatter.string(from: timestamp)
         let confirmed = wasConfirmed ? "yes" : "no"
-        return "[\(ts)] [\(actionType.rawValue)] [\(targetDescription)] [\(result.rawValue)] [USER_CONFIRMED: \(confirmed)]"
+        let sanitizedTarget = targetDescription
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "[", with: "(")
+            .replacingOccurrences(of: "]", with: ")")
+        return "[\(ts)] [\(actionType.rawValue)] [\(sanitizedTarget)] [\(result.rawValue)] [USER_CONFIRMED: \(confirmed)]"
     }
 }
 
@@ -196,6 +201,10 @@ public actor AuditTrail {
         } else {
             do {
                 try data.write(to: fileURL, options: .atomic)
+                try FileManager.default.setAttributes(
+                    [.posixPermissions: 0o600],
+                    ofItemAtPath: logFilePath
+                )
             } catch {
                 Self.logger.error("Failed to create audit log: \(error.localizedDescription)")
             }
@@ -208,7 +217,11 @@ public actor AuditTrail {
         let fm = FileManager.default
         if !fm.fileExists(atPath: logDirectoryPath) {
             do {
-                try fm.createDirectory(atPath: logDirectoryPath, withIntermediateDirectories: true)
+                try fm.createDirectory(
+                    atPath: logDirectoryPath,
+                    withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700]
+                )
             } catch {
                 Self.logger.error("Failed to create audit directory: \(error.localizedDescription)")
             }

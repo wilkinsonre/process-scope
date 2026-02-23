@@ -136,5 +136,10 @@ public final class AppState: ObservableObject {
         pollingCoordinator.subscribe(tier: .slow, subscriber: PollingSubscriber(id: "metrics-slow") { [weak self] in
             await self?.metricsViewModel.updateSlowMetrics()
         })
+
+        // Infrequent tier (60s) — Battery health, Time Machine, security posture, speed test
+        pollingCoordinator.subscribe(tier: .infrequent, subscriber: PollingSubscriber(id: "metrics-infrequent") { [weak self] in
+            await self?.metricsViewModel.updateInfrequentMetrics()
+        })
     }
 }

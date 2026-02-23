@@ -11,6 +11,7 @@ public enum StorageActionError: LocalizedError {
     case diskNotFound(String)
     case ejectFailed(String)
     case unmountFailed(String)
+    case invalidPath(String)
 
     public var errorDescription: String? {
         switch self {
@@ -22,6 +23,8 @@ public enum StorageActionError: LocalizedError {
             "Eject failed: \(reason)"
         case .unmountFailed(let reason):
             "Unmount failed: \(reason)"
+        case .invalidPath(let path):
+            "Invalid volume path: \(path)"
         }
     }
 }
@@ -40,6 +43,32 @@ public actor StorageActionService {
 
     public init() {}
 
+    // MARK: - Input Validation
+
+    /// Validates a volume mount point path for safety
+    ///
+    /// Ensures the path is under `/Volumes/`, does not contain path traversal
+    /// components (`..`), and has at least 3 path components (/, Volumes, name).
+    /// This prevents directory traversal attacks when the path is passed to
+    /// DiskArbitration operations.
+    ///
+    /// - Parameter path: The volume path to validate
+    /// - Throws: ``StorageActionError/invalidPath(_:)`` if validation fails
+    private static func validateVolumePath(_ path: String) throws {
+        guard path.hasPrefix("/Volumes/") else {
+            throw StorageActionError.invalidPath(path)
+        }
+
+        let components = (path as NSString).pathComponents
+        guard components.count >= 3 else {
+            throw StorageActionError.invalidPath(path)
+        }
+
+        guard !components.contains("..") else {
+            throw StorageActionError.invalidPath(path)
+        }
+    }
+
     // MARK: - Eject Volume
 
     /// Ejects a removable volume
@@ -49,6 +78,7 @@ public actor StorageActionService {
     /// - Parameter path: The mount point path of the volume (e.g., "/Volumes/MyDrive")
     /// - Throws: ``StorageActionError`` if the session or disk cannot be created, or eject fails
     public func ejectVolume(path: String) async throws {
+        try Self.validateVolumePath(path)
         Self.logger.info("Ejecting volume at: \(path)")
         try await performDiskOperation(path: path, operation: .eject, force: false)
     }
@@ -62,6 +92,7 @@ public actor StorageActionService {
     /// - Parameter path: The mount point path of the volume
     /// - Throws: ``StorageActionError`` if the operation fails
     public func forceEjectVolume(path: String) async throws {
+        try Self.validateVolumePath(path)
         Self.logger.info("Force ejecting volume at: \(path)")
         try await performDiskOperation(path: path, operation: .eject, force: true)
     }
@@ -75,6 +106,7 @@ public actor StorageActionService {
     /// - Parameter path: The mount point path of the volume
     /// - Throws: ``StorageActionError`` if the operation fails
     public func unmountVolume(path: String) async throws {
+        try Self.validateVolumePath(path)
         Self.logger.info("Unmounting volume at: \(path)")
         try await performDiskOperation(path: path, operation: .unmount, force: false)
     }

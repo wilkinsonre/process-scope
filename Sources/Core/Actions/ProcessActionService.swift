@@ -115,6 +115,9 @@ public actor ProcessActionService {
     ///   - priority: The new nice value (-20 to 20)
     /// - Throws: ``ActionError/signalFailed(_:_:_:)`` if `setpriority(2)` fails
     public func renice(pid: pid_t, priority: Int32) async throws {
+        guard (-20...20).contains(priority) else {
+            throw ActionError.executionFailed("Priority must be between -20 and 20, got \(priority)")
+        }
         Self.logger.info("Setting priority of PID \(pid) to \(priority)")
         let result = setpriority(PRIO_PROCESS, id_t(pid), priority)
         guard result == 0 else {

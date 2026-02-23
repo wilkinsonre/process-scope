@@ -58,34 +58,14 @@ struct DashboardView: View {
         case "audio":
             AudioDetailView()
         case "display":
-            PlaceholderDetailView(title: "Display", symbol: "display")
+            DisplayDetailView()
         case "security":
-            PlaceholderDetailView(title: "Security", symbol: "lock.shield")
+            SecurityDetailView()
         case "developer":
-            DockerDetailView()
+            DeveloperDetailView()
         default:
             OverviewPanel()
         }
     }
 }
 
-// MARK: - Placeholder for unimplemented modules
-
-struct PlaceholderDetailView: View {
-    let title: String
-    let symbol: String
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: symbol)
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(.title)
-            Text("Coming soon")
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle(title)
-    }
-}

@@ -431,13 +431,14 @@ final class AlertEngineTests: XCTestCase {
     }
 
     func testCooldownAllowsRefireAfterExpiry() async {
+        // Minimum enforced cooldown is 5 seconds to prevent alert DoS
         let rule = AlertRule(
             name: "Quick Test",
             metric: .cpuUsage,
             condition: .greaterThan,
             threshold: 90,
             duration: 0,
-            cooldown: 1 // 1 second cooldown
+            cooldown: 5 // 5 second cooldown (minimum enforced)
         )
         await engine.setRules([rule])
 
@@ -448,7 +449,7 @@ final class AlertEngineTests: XCTestCase {
         XCTAssertEqual(events1.count, 1)
 
         // Wait for cooldown
-        try? await Task.sleep(for: .seconds(1.1))
+        try? await Task.sleep(for: .seconds(5.1))
 
         // Should fire again after cooldown
         let events2 = await engine.evaluate(metrics: metrics)

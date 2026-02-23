@@ -1,4 +1,5 @@
 import Darwin
+import Foundation
 import os
 
 /// Wrapper for sysctl-based process enumeration and argument parsing
@@ -68,7 +69,74 @@ public enum SysctlWrapper {
             offset += arg.utf8.count + 1
         }
 
-        return (execPath, args)
+        let redactedArgs = args.map { redactSensitiveArgument($0) }
+        return (execPath, redactedArgs)
+    }
+
+    // MARK: - Argument Redaction
+
+    /// Redacts sensitive values from a single process argument string
+    ///
+    /// Patterns redacted:
+    /// - `--password=<value>` becomes `--password=[REDACTED]`
+    /// - `-p <value>` when preceded by mysql/psql (handled at list level)
+    /// - `KEY=<value>`, `SECRET=<value>`, `TOKEN=<value>`, `PASSWORD=<value>` (case insensitive)
+    /// - `Bearer <token>` becomes `Bearer [REDACTED]`
+    static func redactSensitiveArgument(_ argument: String) -> String {
+        var result = argument
+
+        // Redact --password=<value>
+        if let range = result.range(of: #"--password=[^\s]*"#, options: .regularExpression) {
+            result = result.replacingCharacters(in: range, with: "--password=[REDACTED]")
+        }
+
+        // Redact KEY=value, SECRET=value, TOKEN=value, PASSWORD=value (case insensitive)
+        // Matches patterns like AWS_SECRET_KEY=abc123, DB_PASSWORD=foo, API_TOKEN=bar
+        if let range = result.range(
+            of: #"(?i)([A-Z_]*(KEY|SECRET|TOKEN|PASSWORD)[A-Z_]*)=\S+"#,
+            options: .regularExpression
+        ) {
+            let matched = String(result[range])
+            if let eqIndex = matched.firstIndex(of: "=") {
+                let prefix = matched[matched.startIndex...eqIndex]
+                result = result.replacingCharacters(in: range, with: prefix + "[REDACTED]")
+            }
+        }
+
+        // Redact Bearer tokens
+        if let range = result.range(of: #"Bearer\s+\S+"#, options: .regularExpression) {
+            result = result.replacingCharacters(in: range, with: "Bearer [REDACTED]")
+        }
+
+        return result
+    }
+
+    /// Redacts sensitive values from a list of process arguments, including
+    /// context-dependent patterns like `mysql -p <password>`
+    ///
+    /// - Parameter arguments: The raw argument list from KERN_PROCARGS2
+    /// - Returns: The argument list with sensitive values replaced by `[REDACTED]`
+    public static func redactSensitiveArguments(_ arguments: [String]) -> [String] {
+        var result: [String] = []
+        var i = 0
+        while i < arguments.count {
+            let arg = arguments[i]
+
+            // Check for mysql/psql -p <password> pattern
+            if arg == "-p" && i > 0 && i + 1 < arguments.count {
+                let joinedPrevious = arguments[0...i].joined(separator: " ").lowercased()
+                if joinedPrevious.contains("mysql") || joinedPrevious.contains("psql") {
+                    result.append(arg)
+                    result.append("[REDACTED]")
+                    i += 2
+                    continue
+                }
+            }
+
+            result.append(redactSensitiveArgument(arg))
+            i += 1
+        }
+        return result
     }
 
     // MARK: - System Info

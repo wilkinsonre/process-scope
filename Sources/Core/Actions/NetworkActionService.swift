@@ -73,7 +73,7 @@ public struct DNSResult: Sendable, Equatable {
 /// Protocol for network actions, enabling mock injection for tests
 public protocol NetworkActionServiceProtocol: Sendable {
     /// Opens Terminal.app with an SSH command to the specified host
-    func openSSHTerminal(host: String, user: String?, port: Int?) async
+    func openSSHTerminal(host: String, user: String?, port: Int?) async throws
     /// Flushes the system DNS cache (requires privileged helper)
     func flushDNSCache() async throws
     /// Pings a host with the specified number of packets
@@ -92,6 +92,8 @@ public enum NetworkActionError: LocalizedError {
     case parseError(String)
     case timeout
     case invalidHost(String)
+    case invalidUser(String)
+    case invalidPort(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -103,6 +105,10 @@ public enum NetworkActionError: LocalizedError {
             "Network operation timed out"
         case .invalidHost(let host):
             "Invalid host: \(host)"
+        case .invalidUser(let user):
+            "Invalid SSH user: \(user)"
+        case .invalidPort(let port):
+            "Invalid port number: \(port)"
         }
     }
 }
@@ -128,6 +134,69 @@ public actor NetworkActionService: NetworkActionServiceProtocol {
         self.helperConnection = helperConnection
     }
 
+    // MARK: - Input Validation
+
+    /// Character set of allowed characters in hostnames and IP addresses
+    ///
+    /// Allows: letters, digits, hyphens, dots, colons (IPv6), square brackets (IPv6).
+    /// Rejects everything else to prevent command injection when passing hostnames
+    /// to `Process` arguments or AppleScript strings.
+    private static let allowedHostCharacters = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.:[]"
+    )
+
+    /// Validates a hostname or IP address string for safety
+    ///
+    /// - Parameter host: The hostname or IP address to validate
+    /// - Throws: ``NetworkActionError/invalidHost(_:)`` if validation fails
+    private static func validateHostname(_ host: String) throws {
+        guard !host.isEmpty else {
+            throw NetworkActionError.invalidHost(host)
+        }
+        guard host.count <= 253 else {
+            throw NetworkActionError.invalidHost(host)
+        }
+        guard host.unicodeScalars.allSatisfy({ allowedHostCharacters.contains($0) }) else {
+            throw NetworkActionError.invalidHost(host)
+        }
+        guard !host.hasPrefix("-") else {
+            throw NetworkActionError.invalidHost(host)
+        }
+        guard !host.contains("..") else {
+            throw NetworkActionError.invalidHost(host)
+        }
+    }
+
+    /// Character set of allowed characters in SSH usernames
+    ///
+    /// Allows: letters, digits, hyphens, underscores, dots.
+    private static let allowedUserCharacters = CharacterSet(
+        charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    )
+
+    /// Validates an SSH username string for safety
+    ///
+    /// - Parameter user: The username to validate
+    /// - Throws: ``NetworkActionError/invalidUser(_:)`` if validation fails
+    private static func validateSSHUser(_ user: String) throws {
+        guard !user.isEmpty else {
+            throw NetworkActionError.invalidUser(user)
+        }
+        guard user.unicodeScalars.allSatisfy({ allowedUserCharacters.contains($0) }) else {
+            throw NetworkActionError.invalidUser(user)
+        }
+    }
+
+    /// Validates an SSH port number
+    ///
+    /// - Parameter port: The port number to validate
+    /// - Throws: ``NetworkActionError/invalidPort(_:)`` if the port is out of range
+    private static func validatePort(_ port: Int) throws {
+        guard (1...65535).contains(port) else {
+            throw NetworkActionError.invalidPort(port)
+        }
+    }
+
     // MARK: - SSH Terminal
 
     /// Opens Terminal.app with an SSH command to the specified host
@@ -140,7 +209,15 @@ public actor NetworkActionService: NetworkActionServiceProtocol {
     ///   - user: Optional username for the connection
     ///   - port: Optional port number (defaults to 22 if nil)
     @MainActor
-    public func openSSHTerminal(host: String, user: String?, port: Int?) async {
+    public func openSSHTerminal(host: String, user: String?, port: Int?) async throws {
+        try Self.validateHostname(host)
+        if let user {
+            try Self.validateSSHUser(user)
+        }
+        if let port {
+            try Self.validatePort(port)
+        }
+
         let command = buildSSHCommand(host: host, user: user, port: port)
         Self.logger.info("Opening SSH terminal: \(command)")
 
@@ -204,9 +281,7 @@ public actor NetworkActionService: NetworkActionServiceProtocol {
     /// - Returns: A ``PingResult`` with transmission and timing statistics
     /// - Throws: ``NetworkActionError`` if the command fails or output cannot be parsed
     public func pingHost(_ host: String, count: Int = 5) async throws -> PingResult {
-        guard !host.isEmpty else {
-            throw NetworkActionError.invalidHost(host)
-        }
+        try Self.validateHostname(host)
 
         Self.logger.info("Pinging \(host) with count \(count)")
 
@@ -230,9 +305,7 @@ public actor NetworkActionService: NetworkActionServiceProtocol {
     /// - Returns: Array of ``TraceHop`` values, one per network hop
     /// - Throws: ``NetworkActionError`` if the command fails or output cannot be parsed
     public func traceRoute(to host: String) async throws -> [TraceHop] {
-        guard !host.isEmpty else {
-            throw NetworkActionError.invalidHost(host)
-        }
+        try Self.validateHostname(host)
 
         Self.logger.info("Traceroute to \(host)")
 
@@ -256,9 +329,7 @@ public actor NetworkActionService: NetworkActionServiceProtocol {
     /// - Returns: A ``DNSResult`` with addresses, server, and timing
     /// - Throws: ``NetworkActionError`` if the command fails or output cannot be parsed
     public func lookupDNS(hostname: String) async throws -> DNSResult {
-        guard !hostname.isEmpty else {
-            throw NetworkActionError.invalidHost(hostname)
-        }
+        try Self.validateHostname(hostname)
 
         Self.logger.info("DNS lookup for \(hostname)")
 
@@ -558,7 +629,7 @@ public actor MockNetworkActionService: NetworkActionServiceProtocol {
 
     public init() {}
 
-    public func openSSHTerminal(host: String, user: String?, port: Int?) async {
+    public func openSSHTerminal(host: String, user: String?, port: Int?) async throws {
         sshCommandsOpened.append((host: host, user: user, port: port))
     }
 

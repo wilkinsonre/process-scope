@@ -231,6 +231,36 @@ public actor DockerService: DockerServiceProtocol {
         self.hasSearched = true
     }
 
+    // MARK: - Input Validation
+
+    /// Character set of allowed characters in Docker container IDs (hexadecimal)
+    private static let allowedContainerIDCharacters = CharacterSet(
+        charactersIn: "abcdefABCDEF0123456789"
+    )
+
+    /// Validates a Docker container ID string
+    ///
+    /// Docker container IDs are hexadecimal strings up to 64 characters long.
+    /// This validation prevents path traversal and injection when IDs are
+    /// interpolated into URL paths for the Docker Engine API.
+    ///
+    /// - Parameter id: The container ID to validate
+    /// - Throws: ``DockerError/parseError(_:)`` if the ID is invalid
+    private static func validateContainerID(_ id: String) throws {
+        guard !id.isEmpty else {
+            throw DockerError.parseError("Container ID must not be empty")
+        }
+        guard id.count <= 64 else {
+            throw DockerError.parseError("Container ID must not exceed 64 characters")
+        }
+        guard id.unicodeScalars.allSatisfy({ allowedContainerIDCharacters.contains($0) }) else {
+            throw DockerError.parseError("Container ID must contain only hexadecimal characters (a-f, A-F, 0-9)")
+        }
+    }
+
+    /// Maximum number of log lines that can be requested
+    private static let maxTailLines = 10_000
+
     // MARK: - Socket Discovery
 
     /// Whether any Docker socket is available on the system
@@ -285,6 +315,7 @@ public actor DockerService: DockerServiceProtocol {
     /// Starts a stopped container
     /// - Parameter id: Container ID
     public func startContainer(id: String) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Starting container: \(id)")
         try await post("/containers/\(id)/start")
     }
@@ -292,6 +323,7 @@ public actor DockerService: DockerServiceProtocol {
     /// Stops a running container
     /// - Parameter id: Container ID
     public func stopContainer(id: String) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Stopping container: \(id)")
         try await post("/containers/\(id)/stop")
     }
@@ -299,6 +331,7 @@ public actor DockerService: DockerServiceProtocol {
     /// Restarts a container
     /// - Parameter id: Container ID
     public func restartContainer(id: String) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Restarting container: \(id)")
         try await post("/containers/\(id)/restart")
     }
@@ -308,6 +341,7 @@ public actor DockerService: DockerServiceProtocol {
     ///   - id: Container ID
     ///   - force: If true, forces removal even if the container is running
     public func removeContainer(id: String, force: Bool) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Removing container: \(id) (force: \(force))")
         try await delete("/containers/\(id)?force=\(force)")
     }
@@ -315,6 +349,7 @@ public actor DockerService: DockerServiceProtocol {
     /// Pauses a running container
     /// - Parameter id: Container ID
     public func pauseContainer(id: String) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Pausing container: \(id)")
         try await post("/containers/\(id)/pause")
     }
@@ -322,6 +357,7 @@ public actor DockerService: DockerServiceProtocol {
     /// Unpauses a paused container
     /// - Parameter id: Container ID
     public func unpauseContainer(id: String) async throws {
+        try Self.validateContainerID(id)
         Self.logger.info("Unpausing container: \(id)")
         try await post("/containers/\(id)/unpause")
     }
@@ -331,14 +367,17 @@ public actor DockerService: DockerServiceProtocol {
     /// Retrieves recent log output from a container
     /// - Parameters:
     ///   - id: Container ID
-    ///   - tail: Number of lines from the end to retrieve
+    ///   - tail: Number of lines from the end to retrieve (must be positive, capped at 10000)
     /// - Returns: Log output as a string with Docker stream headers stripped
     public func containerLogs(id: String, tail: Int) async throws -> String {
+        try Self.validateContainerID(id)
+        let sanitizedTail = max(1, min(tail, Self.maxTailLines))
+
         guard let socket = resolveSocketPath() else {
             throw DockerError.socketNotFound
         }
 
-        let url = "http://localhost/\(Self.apiVersion)/containers/\(id)/logs?stdout=1&stderr=1&tail=\(tail)"
+        let url = "http://localhost/\(Self.apiVersion)/containers/\(id)/logs?stdout=1&stderr=1&tail=\(sanitizedTail)"
         let output = try await runCurl(socket: socket, method: "GET", url: url)
         return Self.stripDockerLogHeaders(output)
     }

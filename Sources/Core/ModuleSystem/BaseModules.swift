@@ -232,12 +232,13 @@ public final class DisplayModule: PSModule, @unchecked Sendable {
     public nonisolated var isAvailable: Bool { true }
     public var pollingSubscriptions: Set<PollingTier> { [.slow] }
 
-    public var collectors: [any SystemCollector] { [] }
+    public let displayCollector: DisplayCollector
+    public var collectors: [any SystemCollector] { [displayCollector] }
 
-    public init() {}
+    public init() { displayCollector = DisplayCollector() }
 
-    public func activate() async {}
-    public func deactivate() async {}
+    public func activate() async { await displayCollector.activate() }
+    public func deactivate() async { await displayCollector.deactivate() }
 }
 
 // MARK: - Security Module
@@ -250,12 +251,13 @@ public final class SecurityModule: PSModule, @unchecked Sendable {
     public nonisolated var isAvailable: Bool { true }
     public var pollingSubscriptions: Set<PollingTier> { [.slow] }
 
-    public var collectors: [any SystemCollector] { [] }
+    public let securityCollector: SecurityCollector
+    public var collectors: [any SystemCollector] { [securityCollector] }
 
-    public init() {}
+    public init() { securityCollector = SecurityCollector() }
 
-    public func activate() async {}
-    public func deactivate() async {}
+    public func activate() async { await securityCollector.activate() }
+    public func deactivate() async { await securityCollector.deactivate() }
 }
 
 // MARK: - Developer Module
@@ -268,10 +270,11 @@ public final class DeveloperModule: PSModule, @unchecked Sendable {
     public nonisolated var isAvailable: Bool { true }
     public var pollingSubscriptions: Set<PollingTier> { [.extended] }
 
-    public var collectors: [any SystemCollector] { [] }
+    public let developerCollector: DeveloperCollector
+    public var collectors: [any SystemCollector] { [developerCollector] }
 
-    public init() {}
+    public init() { developerCollector = DeveloperCollector() }
 
-    public func activate() async {}
-    public func deactivate() async {}
+    public func activate() async { await developerCollector.activate() }
+    public func deactivate() async { await developerCollector.deactivate() }
 }

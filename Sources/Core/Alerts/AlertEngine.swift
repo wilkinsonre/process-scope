@@ -245,9 +245,13 @@ public actor AlertEngine {
     // MARK: - Private Helpers
 
     /// Checks whether a rule is allowed to fire based on its cooldown period
+    ///
+    /// Enforces a minimum cooldown of 5 seconds to prevent alert flooding,
+    /// even if a rule specifies a shorter cooldown.
     private func shouldFire(ruleID: UUID, now: Date, cooldown: TimeInterval) -> Bool {
+        let effectiveCooldown = max(cooldown, 5.0)
         guard let lastFired = lastFiredTimes[ruleID] else { return true }
-        return now.timeIntervalSince(lastFired) >= cooldown
+        return now.timeIntervalSince(lastFired) >= effectiveCooldown
     }
 
     /// Creates an alert event from a rule and metric value
@@ -300,6 +304,10 @@ public actor AlertEngine {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(rules)
             try data.write(to: URL(fileURLWithPath: rulesFilePath), options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: rulesFilePath
+            )
         } catch {
             Self.logger.error("Failed to save alert rules: \(error.localizedDescription)")
         }
@@ -323,6 +331,10 @@ public actor AlertEngine {
         do {
             let data = try JSONEncoder().encode(alertHistory)
             try data.write(to: URL(fileURLWithPath: historyFilePath), options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: historyFilePath
+            )
         } catch {
             Self.logger.error("Failed to save alert history: \(error.localizedDescription)")
         }
@@ -331,7 +343,11 @@ public actor AlertEngine {
     private func ensureDirectoryExists() {
         let dir = (rulesFilePath as NSString).deletingLastPathComponent
         if !FileManager.default.fileExists(atPath: dir) {
-            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(
+                atPath: dir,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
         }
     }
 

@@ -297,9 +297,9 @@ final class SystemInfoTests: XCTestCase {
 
 final class MockNetworkActionServiceTests: XCTestCase {
 
-    func testMockSSHTracking() async {
+    func testMockSSHTracking() async throws {
         let mock = MockNetworkActionService()
-        await mock.openSSHTerminal(host: "server.local", user: "admin", port: 2222)
+        try await mock.openSSHTerminal(host: "server.local", user: "admin", port: 2222)
         let commands = await mock.sshCommandsOpened
         XCTAssertEqual(commands.count, 1)
         XCTAssertEqual(commands[0].host, "server.local")

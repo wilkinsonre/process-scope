@@ -401,7 +401,7 @@ public final class ActionViewModel: ObservableObject {
         // Network actions
         case .sshToTerminal:
             let host = target.hostname ?? target.name
-            await networkActions.openSSHTerminal(host: host, user: nil, port: nil)
+            try await networkActions.openSSHTerminal(host: host, user: nil, port: nil)
 
         case .flushDNS:
             try await networkActions.flushDNSCache()
