@@ -1,0 +1,117 @@
+name: ProcessScope
+options:
+  bundleIdPrefix: com.processscope
+  deploymentTarget:
+    macOS: "15.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+  ProcessScope:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          - "**/Tests/**"
+    resources:
+      - path: Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.processscope.app
+        INFOPLIST_FILE: SupportingFiles/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SupportingFiles/ProcessScope.entitlements
+        PRODUCT_NAME: ProcessScope
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        ENABLE_HARDENED_RUNTIME: "YES"
+        COMBINE_HIDPI_IMAGES: "YES"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    dependencies:
+      - target: ProcessScopeHelper
+        embed: false
+        link: false
+        copy:
+          destination: executables
+          subpath: ""
+    scheme:
+      testTargets:
+        - ProcessScopeTests
+      gatherCoverageData: true
+
+  ProcessScopeHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Helper
+      - path: Sources/Core/XPC/PSHelperProtocol.swift
+      - path: Sources/Core/Collectors/ProcessCollector.swift
+      - path: Sources/Core/Collectors/SystemCollector.swift
+      - path: Sources/Core/Collectors/CPUCollector.swift
+      - path: Sources/Core/Collectors/MemoryCollector.swift
+      - path: Sources/Core/Collectors/GPUCollector.swift
+      - path: Sources/Core/Collectors/ThermalCollector.swift
+      - path: Sources/Core/Models/ProcessTreeBuilder.swift
+      - path: Sources/Utilities/CInterop
+      - path: Sources/Utilities/Logging
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.processscope.helper
+        INFOPLIST_FILE: SupportingFiles/HelperInfo.plist
+        PRODUCT_NAME: ProcessScopeHelper
+        SKIP_INSTALL: "YES"
+        ENABLE_HARDENED_RUNTIME: "YES"
+        LD_RUNPATH_SEARCH_PATHS: ""
+    dependencies: []
+
+  ProcessScopeTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/ProcessScopeTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.processscope.tests
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ProcessScope.app/Contents/MacOS/ProcessScope"
+    dependencies:
+      - target: ProcessScope
+
+schemes:
+  ProcessScope:
+    build:
+      targets:
+        ProcessScope: all
+        ProcessScopeHelper: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ProcessScopeTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  ProcessScopeTests:
+    build:
+      targets:
+        ProcessScopeTests: [test]
+        ProcessScope: [test]
+    test:
+      config: Debug
+      targets:
+        - ProcessScopeTests

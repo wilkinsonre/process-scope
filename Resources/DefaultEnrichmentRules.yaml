@@ -1,0 +1,92 @@
+# ProcessScope Default Enrichment Rules
+# Match processes and produce human-readable labels
+
+- name: python-uvicorn
+  processName: python3
+  argvContains: uvicorn
+  template: "uvicorn {argv_after:uvicorn|first} (port {port})"
+
+- name: python-gunicorn
+  processName: python3
+  argvContains: gunicorn
+  template: "gunicorn {argv_after:gunicorn|first}"
+
+- name: python-flask
+  processName: python3
+  argvContains: flask
+  template: "Flask {cwd_basename}"
+
+- name: python-django
+  processName: python3
+  argvContains: manage.py
+  template: "Django {cwd_basename}"
+
+- name: python-celery
+  processName: python3
+  argvContains: celery
+  template: "Celery {argv_after:celery|first}"
+
+- name: python-jupyter
+  processName: python3
+  argvContains: jupyter
+  template: "Jupyter {argv_after:jupyter|first}"
+
+- name: python-generic
+  processName: python3
+  template: "Python {argv_match_basename}"
+
+- name: node-next
+  processName: node
+  argvContains: next
+  template: "Next.js {cwd_basename}"
+
+- name: node-vite
+  processName: node
+  argvContains: vite
+  template: "Vite {cwd_basename}"
+
+- name: node-webpack
+  processName: node
+  argvContains: webpack
+  template: "Webpack {cwd_basename}"
+
+- name: node-express
+  processName: node
+  argvContains: express
+  template: "Express {cwd_basename} (port {port})"
+
+- name: node-generic
+  processName: node
+  template: "Node {argv_match_basename}"
+
+- name: ruby-rails
+  processName: ruby
+  argvContains: rails
+  template: "Rails {cwd_basename}"
+
+- name: ruby-puma
+  processName: ruby
+  argvContains: puma
+  template: "Puma {cwd_basename} (port {port})"
+
+- name: go-run
+  processName: go
+  argvContains: run
+  template: "Go {argv_after:run|first}"
+
+- name: docker-desktop
+  processName: com.docker.backend
+  template: "Docker Desktop"
+
+- name: ssh-session
+  processName: ssh
+  template: "SSH {argv_after:ssh|first}"
+
+- name: xcodebuild
+  processName: xcodebuild
+  template: "Xcode Build {cwd_basename}"
+
+- name: swift-build
+  processName: swift
+  argvContains: build
+  template: "Swift Build {cwd_basename}"

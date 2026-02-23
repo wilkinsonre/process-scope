@@ -1,0 +1,43 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+*.xcworkspace
+!ProcessScope.xcworkspace
+xcuserdata/
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Distribution
+*.dmg
+*.pkg
+*.app
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ProcessScope specific
+*.ips
+*.crash
+processscope-scaffold/
+processscope-scaffold.tar.gz
+
+# Secrets
+.env
+*.pem
+*.p12
+*.mobileprovision
