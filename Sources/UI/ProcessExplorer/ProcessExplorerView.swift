@@ -23,14 +23,42 @@ struct ProcessExplorerView: View {
 
                 Divider()
 
-                // Process list
+                // Process list (virtualized via List + OutlineGroup)
                 List(selection: $selectedPID) {
                     OutlineGroup(filteredTree, id: \.process.pid, children: \.optionalChildren) { node in
                         ProcessRowView(node: node)
                             .tag(node.process.pid)
+                            .id(node.process.pid)
+                            .contextMenu {
+                                Button("Copy PID") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString("\(node.process.pid)", forType: .string)
+                                }
+                                Button("Copy Process Name") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(node.process.name, forType: .string)
+                                }
+                                if let path = node.process.executablePath {
+                                    Button("Copy Executable Path") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(path, forType: .string)
+                                    }
+                                }
+                                if !node.process.arguments.isEmpty {
+                                    Button("Copy Command Line") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(
+                                            node.process.arguments.joined(separator: " "),
+                                            forType: .string
+                                        )
+                                    }
+                                }
+                            }
+                            .accessibilityLabel("\(node.enrichedLabel ?? node.process.name), PID \(node.process.pid)")
                     }
                 }
                 .listStyle(.inset(alternatesRowBackgrounds: true))
+                .id(filteredTree.count)
 
                 // Status bar
                 HStack {

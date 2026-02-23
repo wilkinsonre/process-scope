@@ -23,11 +23,17 @@ public final class MetricsViewModel: ObservableObject {
     @Published public var memoryWired: UInt64 = 0
     @Published public var memoryCompressed: UInt64 = 0
     @Published public var memoryFree: UInt64 = 0
+    @Published public var memoryHistory: [Double] = []
 
     // MARK: - GPU
 
     @Published public var gpuUtilization: Double?
     @Published public var gpuHistory: [Double] = []
+
+    // MARK: - Disk
+
+    @Published public var diskUsage: Double = 0
+    @Published public var diskTotal: UInt64 = 0
 
     // MARK: - Thermal
 
@@ -48,9 +54,20 @@ public final class MetricsViewModel: ObservableObject {
     private let maxHistoryPoints = 60
 
     private let processCollector = ProcessCollector()
+    private let enricher: ProcessEnricher
 
     public init() {
         memoryTotal = SysctlWrapper.totalMemory()
+        enricher = ProcessEnricher(rules: ProcessEnricher.defaultRules)
+
+        // Initialize disk metrics from root volume
+        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/") {
+            let total = attrs[.systemSize] as? UInt64 ?? 0
+            let free = attrs[.systemFreeSize] as? UInt64 ?? 0
+            diskTotal = total
+            diskUsage = total > 0 ? Double(total - free) / Double(total) : 0
+        }
+
         Task { await processCollector.activate() }
     }
 
@@ -76,6 +93,8 @@ public final class MetricsViewModel: ObservableObject {
             memoryCompressed = stats.compressed
             memoryFree = stats.free
             memoryPressure = stats.pressure * 100
+            let usedPercent = memoryTotal > 0 ? (Double(stats.used) / Double(memoryTotal)) * 100 : 0
+            appendHistory(&memoryHistory, value: usedPercent)
         }
 
         // GPU
@@ -100,7 +119,22 @@ public final class MetricsViewModel: ObservableObject {
     }
 
     public func updateSlowMetrics() async {
-        // Full tree rebuild with enrichment happens here
+        // Full tree rebuild with enrichment
+        let enrichedLabels = enricher.enrichBatch(processes)
+        let cpuPercentages: [pid_t: Double] = [:] // CPU deltas computed elsewhere
+        processTree = ProcessTreeBuilder.buildTree(
+            from: processes,
+            cpuPercentages: cpuPercentages,
+            enrichedLabels: enrichedLabels
+        )
+
+        // Refresh disk usage from root volume
+        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/") {
+            let total = attrs[.systemSize] as? UInt64 ?? 0
+            let free = attrs[.systemFreeSize] as? UInt64 ?? 0
+            diskTotal = total
+            diskUsage = total > 0 ? Double(total - free) / Double(total) : 0
+        }
     }
 
     // MARK: - History

@@ -1,9 +1,11 @@
 import SwiftUI
+import Sparkle
 
 @main
 struct ProcessScopeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
+    @StateObject private var updaterController = UpdaterController()
 
     var body: some Scene {
         WindowGroup {
@@ -28,10 +30,18 @@ struct ProcessScopeApp: App {
                         appState.setWindowVisible(false)
                     }
                 }
+                .onboardingSheet()
         }
         .defaultSize(width: 1100, height: 750)
         .commands {
             CommandGroup(replacing: .newItem) {}
+
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates\u{2026}") {
+                    updaterController.checkForUpdates()
+                }
+                .disabled(!updaterController.canCheckForUpdates)
+            }
         }
 
         MenuBarExtra("ProcessScope", systemImage: "gauge.with.dots.needle.33percent") {
@@ -58,5 +68,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false // Keep running for menu bar
+    }
+}
+
+// MARK: - Onboarding Sheet Modifier
+
+/// View modifier that presents the helper onboarding sheet on first launch.
+private struct OnboardingSheetModifier: ViewModifier {
+    @AppStorage("hasShownOnboarding") private var hasShownOnboarding = false
+    @State private var showOnboarding = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                if !hasShownOnboarding {
+                    showOnboarding = true
+                }
+            }
+            .sheet(isPresented: $showOnboarding) {
+                HelperOnboardingView()
+            }
+    }
+}
+
+extension View {
+    /// Conditionally presents the helper onboarding sheet on first launch.
+    func onboardingSheet() -> some View {
+        modifier(OnboardingSheetModifier())
     }
 }

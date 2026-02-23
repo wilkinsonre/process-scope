@@ -46,8 +46,20 @@ struct CPUOverviewCard: View {
                 }
                 SparklineView(data: metrics.cpuHistory, color: .blue)
                     .frame(height: 30)
+                    .drawingGroup()
             }
         }
+        .contextMenu {
+            Button("Copy CPU Usage") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    String(format: "%.1f%%", metrics.cpuTotalUsage),
+                    forType: .string
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("CPU usage \(Int(metrics.cpuTotalUsage)) percent")
     }
 }
 
@@ -75,6 +87,24 @@ struct MemoryOverviewCard: View {
                     .frame(height: 8)
             }
         }
+        .contextMenu {
+            Button("Copy Memory Used") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    ByteCountFormatter.string(fromByteCount: Int64(metrics.memoryUsed), countStyle: .memory),
+                    forType: .string
+                )
+            }
+            Button("Copy Memory Pressure") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    String(format: "%.1f%%", metrics.memoryPressure),
+                    forType: .string
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Memory pressure \(Int(metrics.memoryPressure)) percent")
     }
 
     private var pressureColor: Color {
@@ -122,8 +152,20 @@ struct GPUOverviewCard: View {
                 }
                 SparklineView(data: metrics.gpuHistory, color: .green)
                     .frame(height: 30)
+                    .drawingGroup()
             }
         }
+        .contextMenu {
+            Button("Copy GPU Usage") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    String(format: "%.1f%%", metrics.gpuUtilization ?? 0),
+                    forType: .string
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("GPU usage \(Int(metrics.gpuUtilization ?? 0)) percent")
     }
 }
 
@@ -143,6 +185,17 @@ struct NetworkOverviewCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .contextMenu {
+            Button("Copy Connection Count") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    "\(metrics.networkConnections.count) connections",
+                    forType: .string
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(metrics.networkConnections.count) network connections")
     }
 }
 
@@ -171,6 +224,19 @@ struct DiskOverviewCard: View {
                 }
             }
         }
+        .contextMenu {
+            Button("Copy Disk Free") {
+                let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/")
+                let free = attrs?[.systemFreeSize] as? UInt64 ?? 0
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(
+                    ByteCountFormatter.string(fromByteCount: Int64(free), countStyle: .file) + " free",
+                    forType: .string
+                )
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Disk storage overview")
     }
 }
 
@@ -192,6 +258,14 @@ struct ThermalOverviewCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .contextMenu {
+            Button("Copy Thermal State") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(thermalDescription, forType: .string)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Thermal state: \(thermalDescription)")
     }
 
     private var thermalDescription: String {

@@ -1,22 +1,28 @@
 {
+  "skipDangerousModePermissionPrompt": true,
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Read",
       "Glob",
       "Grep",
       "Edit",
       "Write",
+      "Task",
       "Bash(xcodebuild *)",
       "Bash(swift *)",
       "Bash(swiftc *)",
       "Bash(xcrun *)",
-      "Bash(git status)",
+      "Bash(xcodegen *)",
+      "Bash(git status*)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git branch *)",
       "Bash(git checkout *)",
+      "Bash(git remote *)",
+      "Bash(git tag *)",
       "Bash(cat *)",
       "Bash(ls *)",
       "Bash(find *)",
@@ -27,7 +33,10 @@
       "Bash(cp *)",
       "Bash(mv *)",
       "Bash(plutil *)",
-      "Bash(defaults read *)"
+      "Bash(defaults read *)",
+      "Bash(defaults write *)",
+      "Bash(ssh-keygen *)",
+      "Bash(gh *)"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -51,7 +60,7 @@
         ]
       }
     ],
-    "PostCompact": [
+    "PreCompact": [
       {
         "hooks": [
           {
