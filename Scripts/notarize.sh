@@ -26,13 +26,13 @@ if [ -n "${NOTARIZATION_PASSWORD:-}" ]; then
         --apple-id "${APPLE_ID}" \
         --team-id "${APPLE_TEAM_ID}" \
         --password "${NOTARIZATION_PASSWORD}" \
-        --wait
+        --wait --timeout 60m
 else
     xcrun notarytool submit "${DMG_NAME}" \
         --apple-id "${APPLE_ID}" \
         --team-id "${APPLE_TEAM_ID}" \
         --keychain-profile "notarization" \
-        --wait
+        --wait --timeout 60m
 fi
 
 echo "Stapling notarization ticket..."
