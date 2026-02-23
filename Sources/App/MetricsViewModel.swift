@@ -94,6 +94,11 @@ public final class MetricsViewModel: ObservableObject {
     private let bluetoothCollector = BluetoothCollector()
     private let audioCollector = AudioCollector()
 
+    // MARK: - Alert Engine
+
+    /// Alert settings view model for alert evaluation on each critical tick
+    public var alertViewModel: AlertSettingsViewModel?
+
     // MARK: - History limits
 
     private let maxHistoryPoints = 60
@@ -177,6 +182,33 @@ public final class MetricsViewModel: ObservableObject {
         } else {
             thermalState = IOKitWrapper.shared.thermalState()
         }
+
+        // Evaluate alert rules against current metrics
+        evaluateAlerts()
+    }
+
+    // MARK: - Alert Evaluation
+
+    /// Builds current metric values and evaluates alert rules
+    ///
+    /// Called at the end of every critical metrics update (500ms tick).
+    /// This is lightweight -- just packages current values into a struct
+    /// and delegates to the alert view model.
+    private func evaluateAlerts() {
+        guard let alertVM = alertViewModel else { return }
+
+        let metrics = AlertMetricValues(
+            cpuUsage: cpuTotalUsage,
+            memoryPressure: memoryPressure,
+            thermalState: Double(thermalState),
+            diskUsage: diskUsage * 100, // diskUsage is 0-1 ratio, alerts expect 0-100%
+            processCount: Double(processCount),
+            gpuUtilization: gpuUtilization,
+            batteryLevel: batteryInfo.map { Double($0.chargePercent) },
+            powerWatts: powerSnapshot?.totalWatts
+        )
+
+        alertVM.evaluateAndNotify(metrics: metrics)
     }
 
     public func updateStandardMetrics() async {

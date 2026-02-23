@@ -1,0 +1,80 @@
+# ProcessScope Default Alert Rules
+# These rules are loaded on first launch and can be customized in Settings > Alerts
+
+rules:
+  - name: "High CPU Usage"
+    metric: cpuUsage
+    condition: greaterThan
+    threshold: 90
+    duration: 10
+    cooldown: 60
+    severity: warning
+    enabled: true
+    sound: false
+    message: "CPU usage has been above 90% for 10 seconds"
+
+  - name: "Memory Pressure Critical"
+    metric: memoryPressure
+    condition: greaterThan
+    threshold: 80
+    duration: 5
+    cooldown: 30
+    severity: critical
+    enabled: true
+    sound: true
+    message: "Memory pressure is critically high"
+
+  - name: "Thermal Throttling"
+    metric: thermalState
+    condition: greaterThan
+    threshold: 1
+    duration: 0
+    cooldown: 120
+    severity: warning
+    enabled: true
+    sound: false
+    message: "System is thermally throttled"
+
+  - name: "Low Battery"
+    metric: batteryLevel
+    condition: lessThan
+    threshold: 15
+    duration: 0
+    cooldown: 300
+    severity: warning
+    enabled: true
+    sound: true
+    message: "Battery level is below 15%"
+
+  - name: "Disk Nearly Full"
+    metric: diskUsage
+    condition: greaterThan
+    threshold: 90
+    duration: 0
+    cooldown: 600
+    severity: critical
+    enabled: true
+    sound: true
+    message: "Boot volume is nearly full (>90% used)"
+
+  - name: "High GPU Usage"
+    metric: gpuUtilization
+    condition: greaterThan
+    threshold: 95
+    duration: 30
+    cooldown: 120
+    severity: info
+    enabled: true
+    sound: false
+    message: "GPU utilization has been above 95% for 30 seconds"
+
+  - name: "High Power Draw"
+    metric: powerWatts
+    condition: greaterThan
+    threshold: 50
+    duration: 60
+    cooldown: 300
+    severity: info
+    enabled: true
+    sound: false
+    message: "System power draw has exceeded 50W for 60 seconds"

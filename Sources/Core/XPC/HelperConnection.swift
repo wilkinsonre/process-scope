@@ -145,6 +145,100 @@ public actor HelperConnection {
             }
         }
     }
+
+    // MARK: - Privileged Action Methods
+
+    /// Requests the helper to flush the system DNS cache
+    /// - Throws: ``HelperError`` if the helper is unavailable or the operation fails
+    public func flushDNS() async throws {
+        let conn = connect()
+        let success: Bool = try await withCheckedThrowingContinuation { continuation in
+            let proxy = conn.remoteObjectProxyWithErrorHandler { error in
+                continuation.resume(throwing: error)
+            }
+            guard let helper = proxy as? PSHelperProtocol else {
+                continuation.resume(throwing: HelperError.connectionFailed)
+                return
+            }
+            helper.flushDNS { success, error in
+                if let error { continuation.resume(throwing: error); return }
+                continuation.resume(returning: success)
+            }
+        }
+        if !success {
+            throw HelperError.connectionFailed
+        }
+    }
+
+    /// Requests the helper to purge disk caches
+    /// - Throws: ``HelperError`` if the helper is unavailable or the operation fails
+    public func purgeMemory() async throws {
+        let conn = connect()
+        let success: Bool = try await withCheckedThrowingContinuation { continuation in
+            let proxy = conn.remoteObjectProxyWithErrorHandler { error in
+                continuation.resume(throwing: error)
+            }
+            guard let helper = proxy as? PSHelperProtocol else {
+                continuation.resume(throwing: HelperError.connectionFailed)
+                return
+            }
+            helper.purgeMemory { success, error in
+                if let error { continuation.resume(throwing: error); return }
+                continuation.resume(returning: success)
+            }
+        }
+        if !success {
+            throw HelperError.connectionFailed
+        }
+    }
+
+    /// Requests the helper to force-eject a volume
+    /// - Parameter path: Mount point of the volume to force eject
+    /// - Throws: ``HelperError`` if the helper is unavailable or the operation fails
+    public func forceEjectVolume(path: String) async throws {
+        let conn = connect()
+        let success: Bool = try await withCheckedThrowingContinuation { continuation in
+            let proxy = conn.remoteObjectProxyWithErrorHandler { error in
+                continuation.resume(throwing: error)
+            }
+            guard let helper = proxy as? PSHelperProtocol else {
+                continuation.resume(throwing: HelperError.connectionFailed)
+                return
+            }
+            helper.forceEjectVolume(path: path) { success, error in
+                if let error { continuation.resume(throwing: error); return }
+                continuation.resume(returning: success)
+            }
+        }
+        if !success {
+            throw HelperError.connectionFailed
+        }
+    }
+
+    /// Requests the helper to set a process priority
+    /// - Parameters:
+    ///   - pid: Process ID to renice
+    ///   - priority: New nice value (-20 to 20)
+    /// - Throws: ``HelperError`` if the helper is unavailable or the operation fails
+    public func setProcessPriority(pid: pid_t, priority: Int32) async throws {
+        let conn = connect()
+        let success: Bool = try await withCheckedThrowingContinuation { continuation in
+            let proxy = conn.remoteObjectProxyWithErrorHandler { error in
+                continuation.resume(throwing: error)
+            }
+            guard let helper = proxy as? PSHelperProtocol else {
+                continuation.resume(throwing: HelperError.connectionFailed)
+                return
+            }
+            helper.setProcessPriority(pid: pid, priority: priority) { success, error in
+                if let error { continuation.resume(throwing: error); return }
+                continuation.resume(returning: success)
+            }
+        }
+        if !success {
+            throw HelperError.connectionFailed
+        }
+    }
 }
 
 // MARK: - Error Types

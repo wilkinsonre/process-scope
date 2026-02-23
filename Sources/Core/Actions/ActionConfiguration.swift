@@ -65,15 +65,39 @@ public final class ActionConfiguration: ObservableObject {
     /// Allow stop/start/restart/pause/unpause of Docker containers
     @AppStorage("action.docker.lifecycle") public var dockerLifecycleEnabled = false
 
+    /// Allow removing Docker containers (destructive, separate gate from lifecycle)
+    @AppStorage("action.docker.remove") public var dockerRemoveEnabled = false
+
     // MARK: - Network Actions
 
-    /// Allow network-related actions (flush DNS, kill connections)
+    /// Allow network-related actions (flush DNS, kill connections, SSH, ping, etc.)
     @AppStorage("action.network.enabled") public var networkActionsEnabled = false
+
+    /// Allow opening SSH sessions in Terminal
+    @AppStorage("action.network.sshTerminal") public var sshTerminalEnabled = false
+
+    /// Allow ping and traceroute diagnostics
+    @AppStorage("action.network.pingTrace") public var pingTraceEnabled = false
+
+    /// Allow DNS flush (requires helper)
+    @AppStorage("action.network.dnsFlush") public var dnsFlushEnabled = false
+
+    /// Allow DNS lookup queries
+    @AppStorage("action.network.dnsLookup") public var dnsLookupEnabled = false
 
     // MARK: - System Actions
 
     /// Allow system-wide actions (purge memory, restart Finder/Dock)
     @AppStorage("action.system.enabled") public var systemActionsEnabled = false
+
+    /// Allow purging memory cache (requires helper)
+    @AppStorage("action.system.purge") public var purgeEnabled = false
+
+    /// Allow restarting system services (Finder, Dock)
+    @AppStorage("action.system.restartServices") public var restartServicesEnabled = false
+
+    /// Allow power actions (sleep, lock, etc.)
+    @AppStorage("action.system.power") public var powerActionsEnabled = false
 
     // MARK: - Confirmation Behavior
 
@@ -111,12 +135,32 @@ public final class ActionConfiguration: ObservableObject {
         case .copyToClipboard, .revealInFinder:
             return clipboardCopyEnabled
         case .dockerStop, .dockerStart, .dockerRestart, .dockerPause,
-             .dockerUnpause, .dockerRemove:
+             .dockerUnpause:
             return dockerLifecycleEnabled
-        case .flushDNS, .networkKillConnection:
+        case .dockerRemove:
+            return dockerLifecycleEnabled && dockerRemoveEnabled
+        case .sshToTerminal:
+            return networkActionsEnabled && sshTerminalEnabled
+        case .pingHost, .traceRoute:
+            return networkActionsEnabled && pingTraceEnabled
+        case .flushDNS:
+            return networkActionsEnabled && dnsFlushEnabled
+        case .dnsLookup:
+            return networkActionsEnabled && dnsLookupEnabled
+        case .networkKillConnection:
             return networkActionsEnabled
-        case .purgeMemory, .restartFinder, .restartDock:
+        case .purgeMemory:
+            return systemActionsEnabled && purgeEnabled
+        case .restartFinder, .restartDock:
+            return systemActionsEnabled && restartServicesEnabled
+        case .openActivityMonitor, .revealPathInFinder, .copySysInfo:
             return systemActionsEnabled
+        case .emptyTrash:
+            return systemActionsEnabled
+        case .toggleDarkMode:
+            return systemActionsEnabled
+        case .lockScreen:
+            return systemActionsEnabled && powerActionsEnabled
         }
     }
 

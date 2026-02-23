@@ -127,10 +127,25 @@ public final class ActionViewModel: ObservableObject {
     private let auditTrail: AuditTrail
     private let processActions: ProcessActionService
     private let storageActions: StorageActionService
+    private let dockerService: any DockerServiceProtocol
+    private let networkActions: any NetworkActionServiceProtocol
+    private let systemActions: any SystemActionServiceProtocol
     private let helperConnection: HelperConnection
 
     /// Whether the privileged helper daemon is currently installed
     @Published public var isHelperInstalled: Bool
+
+    /// Last ping result for display in the network detail view
+    @Published public var lastPingResult: PingResult?
+
+    /// Last traceroute result for display in the network detail view
+    @Published public var lastTraceHops: [TraceHop]?
+
+    /// Last DNS lookup result for display in the network detail view
+    @Published public var lastDNSResult: DNSResult?
+
+    /// Last system info string for clipboard copy
+    @Published public var lastSysInfo: String?
 
     // MARK: - Initialization
 
@@ -138,11 +153,17 @@ public final class ActionViewModel: ObservableObject {
     /// - Parameters:
     ///   - configuration: Persisted action toggles
     ///   - auditTrail: Audit log writer
+    ///   - dockerService: Docker container lifecycle service
+    ///   - networkActions: Network action service for SSH, ping, traceroute, DNS
+    ///   - systemActions: System action service for Finder, Activity Monitor, etc.
     ///   - helperConnection: XPC connection to the privileged helper
-    ///   - isHelperInstalled: Closure returning current helper installation status
+    ///   - isHelperInstalled: Whether the helper daemon is currently installed
     public init(
         configuration: ActionConfiguration = ActionConfiguration(),
         auditTrail: AuditTrail = AuditTrail(),
+        dockerService: (any DockerServiceProtocol)? = nil,
+        networkActions: (any NetworkActionServiceProtocol)? = nil,
+        systemActions: (any SystemActionServiceProtocol)? = nil,
         helperConnection: HelperConnection = HelperConnection(),
         isHelperInstalled: Bool = false
     ) {
@@ -150,6 +171,9 @@ public final class ActionViewModel: ObservableObject {
         self.auditTrail = auditTrail
         self.processActions = ProcessActionService()
         self.storageActions = StorageActionService()
+        self.dockerService = dockerService ?? DockerService()
+        self.networkActions = networkActions ?? NetworkActionService(helperConnection: helperConnection)
+        self.systemActions = systemActions ?? SystemActionService(helperConnection: helperConnection)
         self.helperConnection = helperConnection
         self.isHelperInstalled = isHelperInstalled
     }
@@ -337,22 +361,103 @@ public final class ActionViewModel: ObservableObject {
                 ClipboardService.revealInFinder(path: path)
             }
 
-        // Docker, network, system actions — stubs for future milestones
-        case .dockerStop, .dockerStart, .dockerRestart, .dockerPause,
-             .dockerUnpause, .dockerRemove:
-            throw ActionError.executionFailed("Docker actions will be implemented in M11")
+        // Docker actions
+        case .dockerStop:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.stopContainer(id: containerID)
 
-        case .flushDNS, .networkKillConnection:
-            throw ActionError.executionFailed("Network actions will be implemented in M12")
+        case .dockerStart:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.startContainer(id: containerID)
 
+        case .dockerRestart:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.restartContainer(id: containerID)
+
+        case .dockerPause:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.pauseContainer(id: containerID)
+
+        case .dockerUnpause:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.unpauseContainer(id: containerID)
+
+        case .dockerRemove:
+            guard let containerID = target.containerID else {
+                throw ActionError.executionFailed("No container ID specified")
+            }
+            try await dockerService.removeContainer(id: containerID, force: false)
+
+        // Network actions
+        case .sshToTerminal:
+            let host = target.hostname ?? target.name
+            await networkActions.openSSHTerminal(host: host, user: nil, port: nil)
+
+        case .flushDNS:
+            try await networkActions.flushDNSCache()
+
+        case .pingHost:
+            let host = target.hostname ?? target.name
+            let result = try await networkActions.pingHost(host, count: 5)
+            lastPingResult = result
+
+        case .traceRoute:
+            let host = target.hostname ?? target.name
+            let hops = try await networkActions.traceRoute(to: host)
+            lastTraceHops = hops
+
+        case .dnsLookup:
+            let host = target.hostname ?? target.name
+            let result = try await networkActions.lookupDNS(hostname: host)
+            lastDNSResult = result
+
+        case .networkKillConnection:
+            // Kill connection requires the helper daemon to terminate a socket
+            throw ActionError.executionFailed(
+                "Connection termination requires the privileged helper daemon"
+            )
+
+        // System actions
         case .purgeMemory:
-            throw ActionError.executionFailed("System actions will be implemented in M12")
+            try await systemActions.purgeMemory()
 
         case .restartFinder:
-            throw ActionError.executionFailed("System actions will be implemented in M12")
+            try await systemActions.restartFinder()
 
         case .restartDock:
-            throw ActionError.executionFailed("System actions will be implemented in M12")
+            try await systemActions.restartDock()
+
+        case .openActivityMonitor:
+            await systemActions.openActivityMonitor()
+
+        case .revealPathInFinder:
+            if let path = target.path {
+                await systemActions.revealInFinder(path: path)
+            }
+
+        case .emptyTrash:
+            try await systemActions.emptyTrash()
+
+        case .toggleDarkMode:
+            try await systemActions.toggleDarkMode()
+
+        case .lockScreen:
+            await systemActions.lockScreen()
+
+        case .copySysInfo:
+            let info = await systemActions.copySysInfo()
+            lastSysInfo = info
+            ClipboardService.copy(info)
         }
     }
 
@@ -399,6 +504,54 @@ public final class ActionViewModel: ObservableObject {
 
         case .unmountVolume:
             "This will unmount the volume at \(target.volumePath ?? target.name)."
+
+        case .dockerStop:
+            "This will stop container \"\(target.name)\"" +
+            (target.containerID.map { " (\($0))" } ?? "") +
+            ". The container can be started again later."
+
+        case .dockerStart:
+            "This will start container \"\(target.name)\"."
+
+        case .dockerRestart:
+            "This will restart container \"\(target.name)\"" +
+            (target.containerID.map { " (\($0))" } ?? "") +
+            ". Running processes inside will be stopped and restarted."
+
+        case .dockerPause:
+            "This will pause container \"\(target.name)\". " +
+            "All processes inside will be frozen until unpaused."
+
+        case .dockerUnpause:
+            "This will unpause container \"\(target.name)\"."
+
+        case .dockerRemove:
+            "This will permanently remove container \"\(target.name)\"" +
+            (target.containerID.map { " (\($0))" } ?? "") +
+            ". This action cannot be undone."
+
+        case .flushDNS:
+            "This will clear the DNS resolver cache. All cached DNS entries will be flushed."
+
+        case .purgeMemory:
+            "This clears the filesystem cache. Apps will need to re-read from disk, " +
+            "which may briefly slow things down."
+
+        case .restartFinder:
+            "Finder will quit and relaunch. Open Finder windows will close and reopen."
+
+        case .restartDock:
+            "The Dock will disappear briefly and reappear. Running apps are not affected."
+
+        case .emptyTrash:
+            "This will permanently delete all items in the Trash. This cannot be undone."
+
+        case .toggleDarkMode:
+            "This will toggle the system appearance between light and dark mode."
+
+        case .networkKillConnection:
+            "This will terminate the network connection for \"\(target.name)\". " +
+            "The remote endpoint may attempt to reconnect."
 
         default:
             "Execute \(type.displayName) on \(target.name)?"
@@ -457,5 +610,101 @@ public final class ActionViewModel: ObservableObject {
         // it simply opens the process inspector panel. The UI layer
         // will handle the actual presentation.
         Self.logger.info("Inspect requested for PID \(process.pid)")
+    }
+
+    // MARK: - Network Convenience Methods
+
+    /// Opens an SSH terminal session to the given host
+    /// - Parameters:
+    ///   - host: The remote hostname or IP address
+    ///   - user: Optional username for the SSH connection
+    ///   - port: Optional port number (defaults to 22)
+    public func requestSSH(host: String, user: String? = nil, port: Int? = nil) {
+        let target = ActionTarget(name: host, hostname: host)
+        Task { await requestAction(.sshToTerminal, target: target) }
+    }
+
+    /// Requests a ping action on a host
+    /// - Parameter host: The hostname or IP address to ping
+    public func requestPing(host: String) {
+        let target = ActionTarget(name: host, hostname: host)
+        Task { await requestAction(.pingHost, target: target) }
+    }
+
+    /// Requests a traceroute action on a host
+    /// - Parameter host: The hostname or IP address to trace
+    public func requestTraceRoute(host: String) {
+        let target = ActionTarget(name: host, hostname: host)
+        Task { await requestAction(.traceRoute, target: target) }
+    }
+
+    /// Requests a DNS lookup for a hostname
+    /// - Parameter hostname: The hostname to look up
+    public func requestDNSLookup(hostname: String) {
+        let target = ActionTarget(name: hostname, hostname: hostname)
+        Task { await requestAction(.dnsLookup, target: target) }
+    }
+
+    /// Requests a DNS cache flush
+    public func requestFlushDNS() {
+        let target = ActionTarget(name: "system")
+        Task { await requestAction(.flushDNS, target: target) }
+    }
+
+    // MARK: - System Convenience Methods
+
+    /// Requests a memory purge
+    public func requestPurgeMemory() {
+        let target = ActionTarget(name: "system")
+        Task { await requestAction(.purgeMemory, target: target) }
+    }
+
+    /// Requests a Finder restart
+    public func requestRestartFinder() {
+        let target = ActionTarget(name: "Finder")
+        Task { await requestAction(.restartFinder, target: target) }
+    }
+
+    /// Requests a Dock restart
+    public func requestRestartDock() {
+        let target = ActionTarget(name: "Dock")
+        Task { await requestAction(.restartDock, target: target) }
+    }
+
+    /// Opens Activity Monitor
+    public func requestOpenActivityMonitor() {
+        let target = ActionTarget(name: "Activity Monitor")
+        Task { await requestAction(.openActivityMonitor, target: target) }
+    }
+
+    /// Reveals a path in Finder
+    /// - Parameter path: The absolute file path to reveal
+    public func requestRevealInFinder(path: String) {
+        let target = ActionTarget(name: path, path: path)
+        Task { await requestAction(.revealPathInFinder, target: target) }
+    }
+
+    /// Requests emptying the Trash
+    public func requestEmptyTrash() {
+        let target = ActionTarget(name: "Trash")
+        Task { await requestAction(.emptyTrash, target: target) }
+    }
+
+    /// Toggles dark mode
+    public func requestToggleDarkMode() {
+        let target = ActionTarget(name: "Dark Mode")
+        Task { await requestAction(.toggleDarkMode, target: target) }
+    }
+
+    /// Locks the screen
+    public func requestLockScreen() {
+        let target = ActionTarget(name: "Screen Lock")
+        Task { await requestAction(.lockScreen, target: target) }
+    }
+
+    /// Copies system info to clipboard
+    public func requestCopySysInfo() {
+        let target = ActionTarget(name: "System Info")
+        Task { await requestAction(.copySysInfo, target: target) }
     }
 }

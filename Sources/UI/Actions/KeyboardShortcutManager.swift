@@ -31,6 +31,21 @@ final class KeyboardShortcutManager: ObservableObject {
     /// Callback invoked when the user presses Cmd+I on a selected process.
     var onInspectRequested: ((pid_t) -> Void)?
 
+    /// Callback invoked when the user presses Cmd+Shift+F to reveal in Finder.
+    var onRevealInFinderRequested: ((pid_t) -> Void)?
+
+    /// Callback invoked when the user presses Cmd+P to suspend/resume toggle.
+    var onSuspendToggleRequested: ((pid_t) -> Void)?
+
+    /// Callback invoked when the user presses Cmd+Shift+C to copy command line.
+    var onCopyCommandLineRequested: ((pid_t) -> Void)?
+
+    /// Callback invoked for system-level shortcuts that do not require a selected process.
+    var onFlushDNSRequested: (() -> Void)?
+
+    /// Callback invoked when the user presses Cmd+Shift+I to copy system info.
+    var onCopySysInfoRequested: (() -> Void)?
+
     // MARK: - Lifecycle
 
     /// Installs the local key event monitor.
@@ -84,6 +99,11 @@ final class KeyboardShortcutManager: ObservableObject {
     ///   - pid: The currently selected process PID.
     /// - Returns: `true` if the key combination was handled, `false` to pass through.
     private func handleKeyCode(_ keyCode: UInt16, flags: NSEvent.ModifierFlags, pid: pid_t) -> Bool {
+        // First check for system-level shortcuts that do not require a selected process
+        if let systemResult = handleSystemShortcut(keyCode: keyCode, flags: flags) {
+            return systemResult
+        }
+
         switch (keyCode, flags) {
         // Cmd+Delete: Kill process
         case (51, [.command]):
@@ -103,13 +123,46 @@ final class KeyboardShortcutManager: ObservableObject {
             onCopyRequested?(pid)
             return true
 
+        // Cmd+Shift+C: Copy command line
+        case (8, [.command, .shift]):
+            onCopyCommandLineRequested?(pid)
+            return true
+
         // Cmd+I: Inspect process
         case (34, [.command]):
             onInspectRequested?(pid)
             return true
 
+        // Cmd+P: Suspend/Resume toggle
+        case (35, [.command]):
+            onSuspendToggleRequested?(pid)
+            return true
+
+        // Cmd+Shift+F: Reveal in Finder
+        case (3, [.command, .shift]):
+            onRevealInFinderRequested?(pid)
+            return true
+
         default:
             return false
+        }
+    }
+
+    /// Handles system-level keyboard shortcuts that do not require a selected process.
+    ///
+    /// - Parameters:
+    ///   - keyCode: The virtual key code from the event.
+    ///   - flags: The device-independent modifier flags.
+    /// - Returns: `true` if handled, `false` if not a system shortcut, `nil` to pass through.
+    private func handleSystemShortcut(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool? {
+        switch (keyCode, flags) {
+        // Cmd+Shift+I: Copy system info
+        case (34, [.command, .shift]):
+            onCopySysInfoRequested?()
+            return true
+
+        default:
+            return nil
         }
     }
 }

@@ -57,7 +57,7 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
     case copyToClipboard
     case revealInFinder
 
-    // Docker actions (future M11 — declared now for registry completeness)
+    // Docker actions (M11)
     case dockerStop
     case dockerStart
     case dockerRestart
@@ -65,14 +65,24 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
     case dockerUnpause
     case dockerRemove
 
-    // Network actions (future M12)
+    // Network actions (M12)
+    case sshToTerminal
     case flushDNS
+    case pingHost
+    case traceRoute
+    case dnsLookup
     case networkKillConnection
 
-    // System actions (future M12)
+    // System actions (M12)
     case purgeMemory
     case restartFinder
     case restartDock
+    case openActivityMonitor
+    case revealPathInFinder
+    case emptyTrash
+    case toggleDarkMode
+    case lockScreen
+    case copySysInfo
 
     // MARK: - Display Properties
 
@@ -97,11 +107,21 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
         case .dockerPause: "Pause Container"
         case .dockerUnpause: "Unpause Container"
         case .dockerRemove: "Remove Container"
+        case .sshToTerminal: "SSH to Terminal"
         case .flushDNS: "Flush DNS Cache"
+        case .pingHost: "Ping Host"
+        case .traceRoute: "Trace Route"
+        case .dnsLookup: "DNS Lookup"
         case .networkKillConnection: "Kill Connection"
         case .purgeMemory: "Purge Memory"
         case .restartFinder: "Restart Finder"
         case .restartDock: "Restart Dock"
+        case .openActivityMonitor: "Open Activity Monitor"
+        case .revealPathInFinder: "Reveal in Finder"
+        case .emptyTrash: "Empty Trash"
+        case .toggleDarkMode: "Toggle Dark Mode"
+        case .lockScreen: "Lock Screen"
+        case .copySysInfo: "Copy System Info"
         }
     }
 
@@ -126,11 +146,21 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
         case .dockerPause: "pause.circle"
         case .dockerUnpause: "play.circle.fill"
         case .dockerRemove: "trash"
+        case .sshToTerminal: "terminal"
         case .flushDNS: "arrow.triangle.2.circlepath"
+        case .pingHost: "antenna.radiowaves.left.and.right"
+        case .traceRoute: "point.topleft.down.to.point.bottomright.curvepath"
+        case .dnsLookup: "magnifyingglass"
         case .networkKillConnection: "xmark.shield"
         case .purgeMemory: "memorychip"
         case .restartFinder: "arrow.clockwise"
         case .restartDock: "dock.rectangle"
+        case .openActivityMonitor: "gauge.with.dots.needle.50percent"
+        case .revealPathInFinder: "folder"
+        case .emptyTrash: "trash"
+        case .toggleDarkMode: "circle.lefthalf.filled"
+        case .lockScreen: "lock"
+        case .copySysInfo: "doc.on.doc"
         }
     }
 
@@ -147,9 +177,12 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
         case .dockerStop, .dockerStart, .dockerRestart, .dockerPause,
              .dockerUnpause, .dockerRemove:
             .docker
-        case .flushDNS, .networkKillConnection:
+        case .sshToTerminal, .flushDNS, .pingHost, .traceRoute, .dnsLookup,
+             .networkKillConnection:
             .network
-        case .purgeMemory, .restartFinder, .restartDock:
+        case .purgeMemory, .restartFinder, .restartDock, .openActivityMonitor,
+             .revealPathInFinder, .emptyTrash, .toggleDarkMode, .lockScreen,
+             .copySysInfo:
             .system
         }
     }
@@ -157,7 +190,8 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
     /// Whether this action requires the privileged helper daemon
     public var requiresHelper: Bool {
         switch self {
-        case .forceEjectVolume, .flushDNS, .purgeMemory, .networkKillConnection:
+        case .forceEjectVolume, .flushDNS, .purgeMemory, .networkKillConnection,
+             .emptyTrash:
             true
         case .reniceProcess:
             // Renice to lower priority (higher nice value) works without root,
@@ -172,15 +206,18 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
     public var isDestructive: Bool {
         switch self {
         case .killProcess, .forceKillProcess, .killProcessGroup, .forceQuitApp,
-             .forceEjectVolume, .unmountVolume, .dockerRemove, .networkKillConnection:
+             .forceEjectVolume, .unmountVolume, .dockerRemove, .networkKillConnection,
+             .emptyTrash:
             true
         case .suspendProcess, .ejectVolume, .flushDNS, .purgeMemory,
-             .restartFinder, .restartDock, .reniceProcess:
+             .restartFinder, .restartDock, .reniceProcess, .toggleDarkMode:
             // These are impactful but reversible or low-risk
             true
         case .resumeProcess, .copyToClipboard, .revealInFinder,
              .dockerStop, .dockerStart, .dockerRestart, .dockerPause,
-             .dockerUnpause:
+             .dockerUnpause, .sshToTerminal, .pingHost, .traceRoute,
+             .dnsLookup, .openActivityMonitor, .revealPathInFinder,
+             .lockScreen, .copySysInfo:
             false
         }
     }
@@ -194,6 +231,7 @@ public enum ActionType: String, Codable, Sendable, CaseIterable {
         case .dockerStart: .dockerStop
         case .dockerPause: .dockerUnpause
         case .dockerUnpause: .dockerPause
+        case .toggleDarkMode: .toggleDarkMode
         default: nil
         }
     }
@@ -225,6 +263,9 @@ public struct ActionTarget: Sendable, Equatable {
     /// Bundle identifier (for force quit via NSRunningApplication)
     public let bundleIdentifier: String?
 
+    /// Hostname or IP address (for network actions)
+    public let hostname: String?
+
     /// Creates an action target
     public init(
         pid: pid_t? = nil,
@@ -232,7 +273,8 @@ public struct ActionTarget: Sendable, Equatable {
         path: String? = nil,
         volumePath: String? = nil,
         containerID: String? = nil,
-        bundleIdentifier: String? = nil
+        bundleIdentifier: String? = nil,
+        hostname: String? = nil
     ) {
         self.pid = pid
         self.name = name
@@ -240,6 +282,7 @@ public struct ActionTarget: Sendable, Equatable {
         self.volumePath = volumePath
         self.containerID = containerID
         self.bundleIdentifier = bundleIdentifier
+        self.hostname = hostname
     }
 
     /// Formatted description for audit log entries
@@ -249,6 +292,7 @@ public struct ActionTarget: Sendable, Equatable {
         if let path { parts.append(path) }
         if let volumePath { parts.append(volumePath) }
         if let containerID { parts.append(containerID) }
+        if let hostname { parts.append(hostname) }
         return parts.joined(separator: " | ")
     }
 }

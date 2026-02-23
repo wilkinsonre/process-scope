@@ -17,8 +17,16 @@ final class ActionConfigurationTests: XCTestCase {
             "action.storage.forceEject",
             "action.clipboard.copy",
             "action.docker.lifecycle",
+            "action.docker.remove",
             "action.network.enabled",
+            "action.network.sshTerminal",
+            "action.network.pingTrace",
+            "action.network.dnsFlush",
+            "action.network.dnsLookup",
             "action.system.enabled",
+            "action.system.purge",
+            "action.system.restartServices",
+            "action.system.power",
             "action.confirm.destructive",
             "action.confirm.skipReversible",
         ]
@@ -122,18 +130,32 @@ final class ActionConfigurationTests: XCTestCase {
         XCTAssertTrue(config.isActionAllowed(.dockerRestart))
         XCTAssertTrue(config.isActionAllowed(.dockerPause))
         XCTAssertTrue(config.isActionAllowed(.dockerUnpause))
+        // dockerRemove requires both lifecycle AND remove toggles
+        config.dockerRemoveEnabled = true
         XCTAssertTrue(config.isActionAllowed(.dockerRemove))
 
         // Network actions
         config.networkActionsEnabled = true
+        config.sshTerminalEnabled = true
+        config.pingTraceEnabled = true
+        config.dnsFlushEnabled = true
+        config.dnsLookupEnabled = true
         XCTAssertTrue(config.isActionAllowed(.flushDNS))
         XCTAssertTrue(config.isActionAllowed(.networkKillConnection))
+        XCTAssertTrue(config.isActionAllowed(.sshToTerminal))
+        XCTAssertTrue(config.isActionAllowed(.pingHost))
+        XCTAssertTrue(config.isActionAllowed(.traceRoute))
+        XCTAssertTrue(config.isActionAllowed(.dnsLookup))
 
         // System actions
         config.systemActionsEnabled = true
+        config.purgeEnabled = true
+        config.restartServicesEnabled = true
+        config.powerActionsEnabled = true
         XCTAssertTrue(config.isActionAllowed(.purgeMemory))
         XCTAssertTrue(config.isActionAllowed(.restartFinder))
         XCTAssertTrue(config.isActionAllowed(.restartDock))
+        XCTAssertTrue(config.isActionAllowed(.lockScreen))
     }
 
     @MainActor
@@ -504,8 +526,8 @@ final class ActionTypeTests: XCTestCase {
     }
 
     func testAllCasesCount() {
-        // Verify we have all expected action types
-        XCTAssertEqual(ActionType.allCases.count, 23, "Should have 23 action types total")
+        // Verify we have all expected action types (7 process + 3 storage + 2 clipboard + 6 docker + 6 network + 9 system = 33)
+        XCTAssertEqual(ActionType.allCases.count, 33, "Should have 33 action types total")
     }
 }
 
@@ -705,8 +727,16 @@ final class ActionViewModelTests: XCTestCase {
         "action.storage.forceEject",
         "action.clipboard.copy",
         "action.docker.lifecycle",
+        "action.docker.remove",
         "action.network.enabled",
+        "action.network.sshTerminal",
+        "action.network.pingTrace",
+        "action.network.dnsFlush",
+        "action.network.dnsLookup",
         "action.system.enabled",
+        "action.system.purge",
+        "action.system.restartServices",
+        "action.system.power",
         "action.confirm.destructive",
         "action.confirm.skipReversible",
     ]

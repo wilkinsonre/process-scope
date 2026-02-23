@@ -23,6 +23,11 @@ public final class AppState: ObservableObject {
     public let metricsViewModel: MetricsViewModel
     public let helperConnection = HelperConnection()
 
+    // MARK: - Alert Engine
+
+    public let alertEngine = AlertEngine()
+    public let alertViewModel: AlertSettingsViewModel
+
     private var cancellables = Set<AnyCancellable>()
     private var batteryObserver: Any?
 
@@ -30,6 +35,17 @@ public final class AppState: ObservableObject {
         let polling = PollingCoordinator(registry: moduleRegistry)
         self.pollingCoordinator = polling
         self.metricsViewModel = MetricsViewModel()
+
+        // Initialize alert subsystem
+        let alertVM = AlertSettingsViewModel(engine: alertEngine)
+        self.alertViewModel = alertVM
+        metricsViewModel.alertViewModel = alertVM
+
+        // Load alert rules from disk (or initialize defaults)
+        Task {
+            await alertEngine.loadRules()
+            alertVM.refresh()
+        }
 
         registerDefaultModules()
         setupPollingSubscriptions()

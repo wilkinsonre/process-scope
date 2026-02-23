@@ -4,6 +4,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var registry: ModuleRegistry
+    @StateObject private var actionVM = ActionViewModel()
 
     var body: some View {
         NavigationSplitView {
@@ -16,6 +17,21 @@ struct DashboardView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .environmentObject(actionVM)
+        .confirmationDialog(
+            actionVM.pendingAction?.title ?? "",
+            isPresented: $actionVM.showConfirmation,
+            presenting: actionVM.pendingAction
+        ) { pending in
+            Button(pending.confirmLabel, role: pending.isDestructive ? .destructive : nil) {
+                Task { await actionVM.confirmAction() }
+            }
+            Button("Cancel", role: .cancel) {
+                actionVM.cancelAction()
+            }
+        } message: { pending in
+            Text(pending.detail)
+        }
     }
 
     @ViewBuilder
@@ -46,7 +62,7 @@ struct DashboardView: View {
         case "security":
             PlaceholderDetailView(title: "Security", symbol: "lock.shield")
         case "developer":
-            PlaceholderDetailView(title: "Developer", symbol: "hammer")
+            DockerDetailView()
         default:
             OverviewPanel()
         }

@@ -13,6 +13,7 @@ struct ProcessScopeApp: App {
                 .environmentObject(appState)
                 .environmentObject(appState.moduleRegistry)
                 .environmentObject(appState.metricsViewModel)
+                .environmentObject(appState.alertViewModel)
                 .frame(minWidth: 900, minHeight: 600)
                 .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)) { _ in
                     appState.setWindowVisible(true)
@@ -55,6 +56,7 @@ struct ProcessScopeApp: App {
             SettingsView()
                 .environmentObject(appState)
                 .environmentObject(appState.moduleRegistry)
+                .environmentObject(appState.alertViewModel)
         }
     }
 }

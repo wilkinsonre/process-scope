@@ -240,14 +240,13 @@ struct ActionsSettingsTab: View {
     }
 }
 
+/// Settings tab for managing alert rules, backed by AlertSettingsView
 struct AlertsSettingsTab: View {
+    @EnvironmentObject var alertViewModel: AlertSettingsViewModel
+
     var body: some View {
-        Form {
-            Text("Alert rules will be configured in M13")
-                .foregroundStyle(.secondary)
-        }
-        .formStyle(.grouped)
-        .padding()
+        AlertSettingsView()
+            .environmentObject(alertViewModel)
     }
 }
 
