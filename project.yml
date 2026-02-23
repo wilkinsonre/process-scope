@@ -35,8 +35,8 @@ targets:
         INFOPLIST_FILE: SupportingFiles/Info.plist
         CODE_SIGN_ENTITLEMENTS: SupportingFiles/ProcessScope.entitlements
         PRODUCT_NAME: ProcessScope
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.3.0"
+        CURRENT_PROJECT_VERSION: 2
         SWIFT_EMIT_LOC_STRINGS: "YES"
         ENABLE_HARDENED_RUNTIME: "YES"
         COMBINE_HIDPI_IMAGES: "YES"

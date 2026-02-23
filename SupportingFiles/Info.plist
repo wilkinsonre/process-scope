@@ -31,6 +31,10 @@
         <key>com.processscope.helper</key>
         <string>identifier "com.processscope.helper" and anchor apple generic</string>
     </dict>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/wilkinsonre/process-scope/main/docs/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>TPaSbjZbfOd231Ovp0jRHxMbfe0AulGPEzmT6QycyBI=</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>ProcessScope monitors Bluetooth device battery levels and connection status.</string>
     <key>NSLocalNetworkUsageDescription</key>

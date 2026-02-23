@@ -20,11 +20,20 @@ fi
 
 echo "Submitting ${DMG_NAME} for notarization..."
 
-xcrun notarytool submit "${DMG_NAME}" \
-    --apple-id "${APPLE_ID}" \
-    --team-id "${APPLE_TEAM_ID}" \
-    --keychain-profile "notarization" \
-    --wait
+# Support both keychain-profile (local) and app-specific password (CI)
+if [ -n "${NOTARIZATION_PASSWORD:-}" ]; then
+    xcrun notarytool submit "${DMG_NAME}" \
+        --apple-id "${APPLE_ID}" \
+        --team-id "${APPLE_TEAM_ID}" \
+        --password "${NOTARIZATION_PASSWORD}" \
+        --wait
+else
+    xcrun notarytool submit "${DMG_NAME}" \
+        --apple-id "${APPLE_ID}" \
+        --team-id "${APPLE_TEAM_ID}" \
+        --keychain-profile "notarization" \
+        --wait
+fi
 
 echo "Stapling notarization ticket..."
 xcrun stapler staple "${DMG_NAME}"
