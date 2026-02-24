@@ -51,12 +51,31 @@ mkdir -p "${STAGING_DIR}"
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
 ln -s /Applications "${STAGING_DIR}/Applications"
 
-# Create DMG
-rm -f "${DMG_NAME}"
+# Copy volume icon from app icon
+ICNS_PATH="${APP_PATH}/Contents/Resources/AppIcon.icns"
+if [ -f "$ICNS_PATH" ]; then
+    cp "$ICNS_PATH" "${STAGING_DIR}/.VolumeIcon.icns"
+fi
+
+# Create read-write DMG first (so we can set custom icon flag)
+rm -f "${DMG_NAME}" "${DMG_NAME}.rw.dmg"
 hdiutil create -volname "${VOLUME_NAME}" \
     -srcfolder "${STAGING_DIR}" \
-    -ov -format UDZO \
-    "${DMG_NAME}"
+    -ov -format UDRW \
+    "${DMG_NAME}.rw.dmg"
+
+# Set custom icon flag on the volume
+MOUNT_DIR=$(mktemp -d)
+hdiutil attach "${DMG_NAME}.rw.dmg" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+if [ -f "$MOUNT_DIR/.VolumeIcon.icns" ]; then
+    SetFile -a C "$MOUNT_DIR" 2>/dev/null || true
+fi
+hdiutil detach "$MOUNT_DIR" -quiet
+rmdir "$MOUNT_DIR" 2>/dev/null || true
+
+# Convert to compressed read-only DMG
+hdiutil convert "${DMG_NAME}.rw.dmg" -format UDZO -o "${DMG_NAME}"
+rm -f "${DMG_NAME}.rw.dmg"
 
 # Code sign the DMG if identity is available
 if [ -n "${CODESIGN_IDENTITY:-}" ]; then
